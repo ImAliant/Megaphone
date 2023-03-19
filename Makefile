@@ -1,7 +1,14 @@
 CC = gcc
-OBJ = src/client.o
+OBJ_CLIENT = src/client.o
+OBJ_SERVEUR = src/serveur.o
+OBJ = src/client.o src/serveur.o
 
-client : $(OBJ)
+all: client serveur
+
+client : $(OBJ_CLIENT)
+	$(CC) -Wall -o $@ $^ $(CFLAGS)
+
+serveur : $(OBJ_SERVEUR)
 	$(CC) -Wall -o $@ $^ $(CFLAGS)
 
 clean:
