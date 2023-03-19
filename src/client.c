@@ -9,23 +9,23 @@
 #define PORT 7777
 #define ADDR "fdc7:9dd5:2c66:be86:4849:43ff:fe49:79bf"
 
-void address_dest(struct sockaddr_in6 address) {
+void address_dest(struct sockaddr_in address) {
     memset(&address, 0, sizeof(address));
-    address.sin6_family = AF_INET6;
-    address.sin6_port = htons(PORT);
-    inet_pton(AF_INET6, "::1", &address.sin6_addr);
+    address.sin_family = AF_INET;
+    address.sin_port = htons(PORT);
+    inet_pton(AF_INET, "192.168.70.200", &address.sin_addr);
 }
 
 int main() {
     // creation de la socket
-    int sock = socket(PF_INET6, SOCK_STREAM, 0);
+    int sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock == -1) {
         perror("creation socket");
         exit(1);   
     }
 
     // creation de l'adresse du destinataire (serveur)
-    struct sockaddr_in6 address_sock;
+    struct sockaddr_in address_sock;
     address_dest(address_sock);
 
     // demande de connexion au serveur
