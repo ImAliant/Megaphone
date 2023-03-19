@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #define PORT 7777
+#define ADDR "fdc7:9dd5:2c66:be86:4849:43ff:fe49:79bf"
 
 void address_dest(struct sockaddr_in6 address) {
     memset(&address, 0, sizeof(address));
