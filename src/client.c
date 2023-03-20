@@ -1,49 +1,105 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
 
-#define PORT 7777
-#define ADDR "fdc7:9dd5:2c66:be86:4849:43ff:fe49:79bf"
+#define SIZE_MESS 100
+#define NOM "Mangue"
 
-void address_dest(struct sockaddr_in address) {
-    memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_port = htons(PORT);
-    inet_pton(AF_INET, "192.168.70.200", &address.sin_addr);
+void affiche_adresse(struct sockaddr_in6 *adr){
+    char adr_buf[INET6_ADDRSTRLEN];
+    memset(adr_buf, 0, sizeof(adr_buf));
+    
+    inet_ntop(AF_INET6, &(adr->sin6_addr), adr_buf, sizeof(adr_buf));
+    printf("adresse serveur : IP: %s port: %d\n", adr_buf, ntohs(adr->sin6_port));
 }
 
-int main() {
-    // creation de la socket
-    int sock = socket(PF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
-        perror("creation socket");
-        exit(1);   
+
+int get_server_addr(char* hostname, char* port, int * sock, struct sockaddr_in6** addr, int* addrlen) {
+    struct addrinfo hints, *r, *p;
+    int ret;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_V4MAPPED | AI_ALL;
+
+    if ((ret = getaddrinfo(hostname, port, &hints, &r)) != 0 || NULL == r){
+        fprintf(stderr, "erreur getaddrinfo : %s\n", gai_strerror(ret));
+        return -1;
+    }
+    
+    *addrlen = sizeof(struct sockaddr_in6);
+    p = r;
+    while( p != NULL ){
+        affiche_adresse((struct sockaddr_in6 *) p->ai_addr);
+        if((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0){
+            if(connect(*sock, p->ai_addr, *addrlen) == 0)
+    	        break;
+
+            close(*sock);
+        }
+
+        p = p->ai_next;
     }
 
-    // creation de l'adresse du destinataire (serveur)
-    struct sockaddr_in address_sock;
-    address_dest(address_sock);
+    if (NULL == p) return -2;
 
-    // demande de connexion au serveur
-    int r = connect(sock, (struct sockaddr *)&address_sock, sizeof(address_sock));
-    if (r == -1) {
-        perror("echec de la connexion");
-        close(sock);
-        exit(2);
+    //on stocke l'adresse de connexion
+    *addr = (struct sockaddr_in6 *) p->ai_addr;
+
+    //on libère la mémoire allouée par getaddrinfo 
+    freeaddrinfo(r);
+
+    return 0;
+}
+
+
+int main(int argc, char** args) {
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <hostname> <port>\n", args[0]);
+        exit(1);
     }
-    printf("connexion etablie avec le serveur\n");
+    
+    struct sockaddr_in6* server_addr;
+    int fdsock, adrlen;
+    
+    switch (get_server_addr(args[1], args[2], &fdsock, &server_addr, &adrlen)) {
+    case 0: printf("adresse creee !\n"); break;
+    case -1:
+      fprintf(stderr, "Erreur: hote non trouve.\n"); 
+    case -2:
+      fprintf(stderr, "Erreur: echec de creation de la socket.\n");
+      exit(1);
+    }
 
-    // envoi (TODO)
+    affiche_adresse(server_addr);
+    
 
-    // reception (TODO)
+    //*** envoie d'un message ***
+    char buf[SIZE_MESS+1];
+    memset(buf, 0, SIZE_MESS);
+    sprintf(buf, "Hello %s\n", NOM);
+    int ecrit = send(fdsock, buf, strlen(buf), 0);
+    if(ecrit <= 0){
+      perror("erreur ecriture");
+      exit(3);
+    }
 
-    // fermeture de la socket
-    close(sock);
-    printf("connexion terminee\n");
-
+    //*** reception d'un message ***
+    memset(buf, 0, SIZE_MESS+1);
+    int recu = recv(fdsock, buf, SIZE_MESS, 0);
+    if (recu <= 0){
+      perror("erreur lecture");
+      exit(4);
+    }
+    buf[recu] = '\0';
+    printf("%s\n", buf);
+    
+    close(fdsock);
+    
     return 0;
 }
