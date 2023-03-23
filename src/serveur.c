@@ -5,103 +5,165 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
+#include "../headers/socket.h"
+
+#define SIZE_PSEUDO 10
 #define SIZE_MESS 100
+#define SIZE_MAX_LISTE 100
 #define NOM "Cerise"
 
+int nb_utilisateurs = 0;
+
+//LISTE DES INSCRITS
+typedef struct {
+    char pseudo[SIZE_PSEUDO];
+    uint16_t id;
+} utilisateur;
+
+utilisateur liste[SIZE_MAX_LISTE];
+
+char demande_inscription(int sock) {
+    char c;
+    int ecrit = send(sock, "Voulez-vous vous inscrire (o/n) ?", 33, 0);
+    if(ecrit <= 0)
+        perror("send");
+    int recu = recv(sock, &c, 1, 0);
+    if (recu < 0){
+        perror("recv");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    if(recu == 0){
+        fprintf(stderr, "send du client nul\n");
+        close(sock);
+        return NULL;
+    }
+    printf("recu : %c\n", c);
+
+    return c;
+}
+
+void inscription(int sock) {
+    char buf[SIZE_MESS];
+    memset(buf, 0, sizeof(buf));
+    int recu = recv(sock, buf, SIZE_PSEUDO, 0);
+    if (recu < 0){
+        perror("recv");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    if(recu == 0){
+        fprintf(stderr, "send du client nul\n");
+        close(sock);
+        return NULL;
+    }
+    printf("recu : %s\n", buf);
+    // On verifie que le pseudo n'est pas deja pris
+    int i;
+    for(i = 0; i < nb_utilisateurs; i++) {
+        if(strcmp(liste[i].pseudo, buf) == 0) {
+            int ecrit = send(sock, "Pseudo deja pris", 16, 0);
+            if(ecrit <= 0)
+                perror("send");
+            close(sock);
+            int *ret = malloc(sizeof(int));
+            *ret = 1;
+            pthread_exit(ret);
+        }
+    }
+    // L'identifiant est codé sur 11 bits
+    utilisateur u;
+    strcpy(u.pseudo, buf);
+    u.id = nb_utilisateurs;
+    liste[nb_utilisateurs] = u;
+    nb_utilisateurs++;
+}
+
+void *serve(void *arg) {
+    int sock = *((int *) arg);
+    char buf[SIZE_MESS];
+    memset(buf, 0, sizeof(buf));
+
+    // On demande a l'utilisateur si il veut s'inscrire ou se connecter
+    char c = demande_inscription(sock);
+    
+    // On traite le cas ou l'utilisateur veut s'inscrire
+    // On recupere le pseudo
+    if (c == 'o') {
+        inscription(sock);
+    }
+    else if (c == 'n') {
+
+    }
+    else {
+        fprintf(stderr, "Erreur de saisie\n");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+
+    return NULL;
+}
+
+int loop_connexion_communication(struct sockaddr_in6 adrclient, int sock) {
+    while(1) {
+        memset(&adrclient, 0, sizeof(adrclient));
+        socklen_t size=sizeof(adrclient);
+
+        //*** On crée la variable sur le tas ***
+        int *sockclient = malloc(sizeof(int));
+
+        //*** Le serveur accepte une connexion et initialise la socket de communication avec le client ***
+        *sockclient = accept(sock, (struct sockaddr *) &adrclient, &size);
+
+        if (sockclient >= 0) {
+            pthread_t thread;
+
+            //*** Le serveur crée un thread et passe un pointeur sur socket client à la fonction serve ***
+            if (pthread_create(&thread, NULL, serve, sockclient) == -1) {
+                perror("pthread_create");
+                continue;
+            }
+            //*** Affichage de l'adresse du client ***
+            char nom_dst[INET6_ADDRSTRLEN];
+            const char *inet = inet_ntop(AF_INET6, &adrclient.sin6_addr, nom_dst, sizeof(nom_dst));
+            int port = htons(adrclient.sin6_port);
+            printf("client connecte : %s %d\n", inet, port);
+        }
+    }
+}
+ 
 int main(int argc, char *argv[]){
     struct sockaddr_in6 address_sock, adrclient;
-    int port, r, sock, sockclient, optval;
+    int port, r, sock, sockclient;
     socklen_t size;
 
     if(argc != 2){
-      fprintf(stderr, "usage : ./serveur <PORT>\n");
-      exit(1);
+        fprintf(stderr, "usage : ./serveur <PORT>\n");
+        exit(1);
     }
 
-    //*** creation de l'adresse du destinataire (serveur) ***
     port = atoi(argv[1]);
-    address_sock.sin6_family = AF_INET6;
-    address_sock.sin6_port = htons(port);
-    address_sock.sin6_addr = in6addr_any;
+    addresse_destinataire(port, &address_sock);
 
-    //*** creation de la socket ***
-    sock = socket(PF_INET6, SOCK_STREAM, 0);
-    if(sock < 0){
-      perror("creation socket");
-      exit(1);
-    }
+    sock = creation_socket();
 
-    //*** desactiver l'option n'accepter que de l'IPv6 **
-    optval = 0;
-    r = setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval));
-    if (r < 0) 
-      perror("erreur connexion IPv4 impossible");
+    desac_option_only_ipv6(sock);
 
-    //*** le numero de port peut etre utilise en parallele ***
-    optval = 1;
-    r = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    if (r < 0) 
-      perror("erreur réutilisation de port impossible");
+    parallel_use_port(sock);
 
-    //*** on lie la socket au port ***
-    r = bind(sock, (struct sockaddr *) &address_sock, sizeof(address_sock));
-    if (r < 0) {
-      perror("erreur bind");
-      exit(2);
-    }
+    bind_port(sock, &address_sock);
 
-    //*** Le serveur est pret a ecouter les connexions sur le port ***
-    r = listen(sock, 0);
-    if (r < 0) {
-      perror("erreur listen");
-      exit(2);
-    }
+    listen_port(sock);
 
-    //*** le serveur accepte une connexion et cree la socket de communication avec le client ***
-    memset(&adrclient, 0, sizeof(adrclient));
-    size=sizeof(adrclient);
-    sockclient = accept(sock, (struct sockaddr *) &adrclient, &size);
-    
-    if (sockclient >= 0) {
-
-      //*** affichage de l'adresse du client ***
-      char nom_dst[INET6_ADDRSTRLEN];
-      //printf("adresse client %s\n", inet_ntop(AF_INET6,&adrclient.sin6_addr,nom_dst,sizeof(nom_dst)));
-      struct sockaddr_in6 adr2client;
-      socklen_t size2 = sizeof(adr2client);
-      if(getpeername(sockclient, (struct sockaddr *) &adr2client, &size2) == 0)
-        printf("adresse client %s\n", inet_ntop(AF_INET6, &adr2client.sin6_addr, nom_dst, sizeof(nom_dst)));
-
-      memset(nom_dst, 0, sizeof(nom_dst));
-      struct sockaddr_in6 adrserv;
-      socklen_t size3 = sizeof(adrserv);
-      if(getsockname(sockclient, (struct sockaddr *) &adrserv, &size3) == 0)
-        printf("adresse serveur %s\n", inet_ntop(AF_INET6, &adrserv.sin6_addr, nom_dst, sizeof(nom_dst)));
-
-      //*** reception d'un message ***
-      char buf[SIZE_MESS];
-      memset(buf, 0, SIZE_MESS);
-      int recu = recv(sockclient, buf, (SIZE_MESS-1) * sizeof(char), 0);
-      if (recu <= 0){
-        perror("erreur lecture");
-        exit(4);
-      }
-      buf[recu] = '\0';
-      printf("%s\n", buf);
-
-      //*** envoie d'un message ***
-      memset(buf, 0, SIZE_MESS);
-      sprintf(buf, "Salut %s", NOM);
-      int ecrit = send(sockclient, buf, strlen(buf), 0);
-      if(ecrit <= 0){
-        perror("erreur ecriture");
-        exit(3);
-      }
-    }
-
-    //*** fermeture socket client ***
-    close(sockclient);
+    loop_connexion_communication(adrclient, sock);
 
     //*** fermeture socket serveur ***
     close(sock);
