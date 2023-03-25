@@ -27,9 +27,9 @@ void listen_port(int sock);
 /* [CLIENT] */
 
 // On affiche l'adresse du destinataire
-//void affiche_adresse(struct sockaddr_in6*);
+void affiche_adresse(struct sockaddr_in6*);
 
 // On recupere l'adresse du serveur
-//int get_server_addr(char*, char*, int*, struct sockaddr_in6**, int*);
+int get_server_addr(char*, char*, int*, struct sockaddr_in6**, int*);
 
 #endif

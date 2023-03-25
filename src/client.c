@@ -9,78 +9,77 @@
 #include "../headers/socket.h"
 
 #define SIZE_MESS 100
+#define MAX_USERNAME_LEN 10
 
-/*void send_mess(int sock) {
-    printf("Entrez votre message : ");
-    char buf[SIZE_MESS+1];
-    memset(buf, 0, SIZE_MESS);
-    
-    fgets(buf, SIZE_MESS, stdin);
-    
-    int ecrit = send(sock, buf, strlen(buf), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
+void nettoyage() {
+    fflush(stdout);
+    fflush(stdin);
+
+    int c;
+    while((c = getchar()) != '\n' && c != EOF);
 }
 
-void recv_mess(int sock) {
+int rep_demande_inscription(int fdsock) {
     char buf[SIZE_MESS];
-    memset(buf, 0, SIZE_MESS+1);
-    int recu = recv(sock, buf, SIZE_MESS, 0);
+    int recu = recv(fdsock, buf, SIZE_MESS, 0);
     if (recu <= 0){
       perror("erreur lecture");
       exit(4);
     }
     buf[recu] = '\0';
     printf("%s\n", buf);
-}*/
 
-void affiche_adresse(struct sockaddr_in6 *adr){
-    char adr_buf[INET6_ADDRSTRLEN];
-    memset(adr_buf, 0, sizeof(adr_buf));
-    
-    inet_ntop(AF_INET6, &(adr->sin6_addr), adr_buf, sizeof(adr_buf));
-    printf("adresse serveur : IP: %s port: %d\n", adr_buf, ntohs(adr->sin6_port));
+    memset(buf, 0, SIZE_MESS);
+    fgets(buf, 2, stdin);
+
+    int ecrit = send(fdsock, buf, strlen(buf), 0);
+    if(ecrit <= 0){
+      perror("erreur ecriture");
+      exit(3);
+    }
+
+	return strcmp(buf, "o") == 0 ? 1 : 0;
 }
 
-int get_server_addr(char* hostname, char* port, int * sock, struct sockaddr_in6** addr, int* addrlen) {
-    struct addrinfo hints, *r, *p;
-    int ret;
+void inscription(int sock) {
+    char username[MAX_USERNAME_LEN+1];
+    int user_id;
+    char id_str[12];
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET6;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_V4MAPPED | AI_ALL;
-
-    if ((ret = getaddrinfo(hostname, port, &hints, &r) != 0) || NULL == r){
-        fprintf(stderr, "erreur getaddrinfo : %s\n", gai_strerror(ret));
-        return -1;
+    // Reception de la demande d'inscription
+    char msg[SIZE_MESS];
+    int recu = recv(sock, msg, SIZE_MESS, 0);
+    if (recu <= 0){
+      perror("erreur lecture");
+      exit(4);
     }
+    printf("%s\n", msg);
     
-    *addrlen = sizeof(struct sockaddr_in6);
-    p = r;
-    while( p != NULL ){
-        affiche_adresse((struct sockaddr_in6 *) p->ai_addr);
-        if((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0){
-            if(connect(*sock, p->ai_addr, *addrlen) == 0)
-    	        break;
+    nettoyage();
 
-            close(*sock);
-        }
+    // Saisie du pseudo
+    fgets(username, MAX_USERNAME_LEN+1, stdin);
+    strtok(username, "\n");
 
-        p = p->ai_next;
+    // Envoi du pseudo
+    int ecrit = send(sock, username, strlen(username), 0);
+    if(ecrit <= 0){
+      perror("erreur ecriture");
+      exit(3);
     }
 
-    if (NULL == p) return -2;
+    // Reception de l'id
+    recu = recv(sock, id_str, 11, 0);
+    if (recu <= 0){
+      perror("erreur lecture");
+      exit(4);
+    }
 
-    //on stocke l'adresse de connexion
-    *addr = (struct sockaddr_in6 *) p->ai_addr;
+    user_id = atoi(id_str);
 
-    //on libère la mémoire allouée par getaddrinfo 
-    freeaddrinfo(r);
+    printf("Inscription reussie ! Votre identifiant est %d\n", user_id);
 
-    return 0;
+    close(sock);
 }
 
 int main(int argc, char** args) {
@@ -102,45 +101,11 @@ int main(int argc, char** args) {
     }
 
     // Le serveur nous envoie un message de bienvenue et nous demande si nous voulons nous inscrire ou nous connecter
-    char buf[SIZE_MESS];
-    int recu = recv(fdsock, buf, SIZE_MESS, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    buf[recu] = '\0';
-    printf("%s\n", buf);
-
-    memset(buf, 0, SIZE_MESS);
-    fgets(buf, 2, stdin);
-
-    int ecrit = send(fdsock, buf, strlen(buf), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
     
-    if (strcmp(buf, "o") == 0) {
-        // Le serveur nous demande de nous inscrire
-        memset(buf, 0, SIZE_MESS);
-        printf("Entrez votre nom d'utilisateur (10 caractères maximum): ");
-        fgets(buf, SIZE_MESS, stdin);
+    int r = rep_demande_inscription(fdsock);
     
-        ecrit = send(fdsock, buf, strlen(buf), 0);
-        if(ecrit <= 0){
-            perror("erreur ecriture");
-            exit(3);
-        }
-
-        memset(buf, 0, SIZE_MESS);
-        // Reception de l'identifiant
-        recu = recv(fdsock, buf, SIZE_MESS, 0);
-        if (recu <= 0){
-            perror("erreur lecture");
-            exit(4);
-        }
-        buf[recu] = '\0';
-        printf("Votre identifiant : %s\n", buf);
+	if (r == 1) {
+        inscription(fdsock);
     }
 
     close(fdsock);

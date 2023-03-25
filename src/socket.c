@@ -58,15 +58,15 @@ void listen_port(int sock) {
     }
 }
 
-/*void affiche_adresse(struct sockaddr_in6 *adr){
+void affiche_adresse(struct sockaddr_in6 *adr){
     char adr_buf[INET6_ADDRSTRLEN];
     memset(adr_buf, 0, sizeof(adr_buf));
     
     inet_ntop(AF_INET6, &(adr->sin6_addr), adr_buf, sizeof(adr_buf));
     printf("adresse serveur : IP: %s port: %d\n", adr_buf, ntohs(adr->sin6_port));
-}*/
+}
 
-/*int get_server_addr(char* hostname, char* port, int * sock, struct sockaddr_in6** addr, int* addrlen) {
+int get_server_addr(char* hostname, char* port, int * sock, struct sockaddr_in6** addr, int* addrlen) {
     struct addrinfo hints, *r, *p;
     int ret;
 
@@ -103,4 +103,4 @@ void listen_port(int sock) {
     freeaddrinfo(r);
 
     return 0;
-}*/
+}

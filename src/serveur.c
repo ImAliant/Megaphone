@@ -9,7 +9,7 @@
 
 #include "../headers/socket.h"
 
-#define SIZE_PSEUDO 10
+#define MAX_USERNAME_LEN 10
 #define SIZE_MESS 100
 #define SIZE_MAX_LISTE 100
 #define NOM "Cerise"
@@ -18,13 +18,26 @@ int nb_utilisateurs = 0;
 
 //LISTE DES INSCRITS
 typedef struct {
-    char pseudo[SIZE_PSEUDO];
+    char pseudo[MAX_USERNAME_LEN];
     uint16_t id;
 } utilisateur;
 
 utilisateur liste[SIZE_MAX_LISTE];
 
-char demande_inscription(int sock) {
+int generate_user_id() {
+    static int current_user_id = 0;
+    current_user_id++;
+    current_user_id &= 0x7FF;
+    return current_user_id;
+}
+
+void create_new_user(char *username, int user_id) {
+    strcpy(liste[nb_utilisateurs].pseudo, username);
+    liste[nb_utilisateurs].id = user_id;
+    nb_utilisateurs++;
+}
+
+int demande_inscription(int sock) {
     char c;
     int ecrit = send(sock, "Voulez-vous vous inscrire (o/n) ?", 33, 0);
     if(ecrit <= 0)
@@ -40,17 +53,29 @@ char demande_inscription(int sock) {
     if(recu == 0){
         fprintf(stderr, "send du client nul\n");
         close(sock);
-        return NULL;
     }
-    printf("recu : %c\n", c);
+    printf("Reponse inscription recu : %c\n", c);
 
-    return c;
+    return c=='o'?1:0;
 }
 
 void inscription(int sock) {
-    char buf[SIZE_MESS];
-    memset(buf, 0, sizeof(buf));
-    int recu = recv(sock, buf, SIZE_PSEUDO, 0);
+    char username[MAX_USERNAME_LEN+1];
+    int user_id;
+
+    // Demande au client de s'inscrire
+    char *message = "Entrez votre pseudo (max 10 caracteres):";
+    int ecrit = send(sock, message, strlen(message), 0);
+    if(ecrit <= 0) {
+        perror("send");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+
+    // Reception du pseudo du client
+    int recu = recv(sock, username, MAX_USERNAME_LEN, 0);
     if (recu < 0){
         perror("recv");
         close(sock);
@@ -61,28 +86,32 @@ void inscription(int sock) {
     if(recu == 0){
         fprintf(stderr, "send du client nul\n");
         close(sock);
-        return NULL;
+        return;
     }
-    printf("recu : %s\n", buf);
-    // On verifie que le pseudo n'est pas deja pris
-    int i;
-    for(i = 0; i < nb_utilisateurs; i++) {
-        if(strcmp(liste[i].pseudo, buf) == 0) {
-            int ecrit = send(sock, "Pseudo deja pris", 16, 0);
-            if(ecrit <= 0)
-                perror("send");
-            close(sock);
-            int *ret = malloc(sizeof(int));
-            *ret = 1;
-            pthread_exit(ret);
-        }
+    printf("Pseudo recu : %s\n", username);
+    
+    // Completion du pseudo avec des #
+    int len = strlen(username);
+    if (len < MAX_USERNAME_LEN) {
+        memset(username+len, '#', MAX_USERNAME_LEN-len);
+        username[MAX_USERNAME_LEN] = '\0';
     }
-    // L'identifiant est codé sur 11 bits
-    utilisateur u;
-    strcpy(u.pseudo, buf);
-    u.id = nb_utilisateurs;
-    liste[nb_utilisateurs] = u;
-    nb_utilisateurs++;
+
+    user_id = generate_user_id();
+    create_new_user(username, user_id);
+
+    char id_str[12];
+    snprintf(id_str, 12, "%11d", user_id);
+    ecrit = send(sock, id_str, 11, 0);
+    if(ecrit <= 0) {
+        perror("send");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+
+    close(sock);
 }
 
 void *serve(void *arg) {
@@ -91,14 +120,14 @@ void *serve(void *arg) {
     memset(buf, 0, sizeof(buf));
 
     // On demande a l'utilisateur si il veut s'inscrire ou se connecter
-    char c = demande_inscription(sock);
+    int r = demande_inscription(sock);
     
     // On traite le cas ou l'utilisateur veut s'inscrire
     // On recupere le pseudo
-    if (c == 'o') {
+    if (r == 1) {
         inscription(sock);
     }
-    else if (c == 'n') {
+    else if (r == 0) {
 
     }
     else {
@@ -142,8 +171,7 @@ int loop_connexion_communication(struct sockaddr_in6 adrclient, int sock) {
  
 int main(int argc, char *argv[]){
     struct sockaddr_in6 address_sock, adrclient;
-    int port, r, sock, sockclient;
-    socklen_t size;
+    int port, sock;
 
     if(argc != 2){
         fprintf(stderr, "usage : ./serveur <PORT>\n");
@@ -165,7 +193,6 @@ int main(int argc, char *argv[]){
 
     loop_connexion_communication(adrclient, sock);
 
-    //*** fermeture socket serveur ***
     close(sock);
     
     return 0;

@@ -1,21 +1,21 @@
 CC = gcc
-HEADERS = headers/socket.h
-OBJ_CLIENT = src/client.o
-OBJ_SERVEUR = src/serveur.o
-OBJ = src/client.o src/serveur.o
-OBJ_DIR = obj
+CFLAGS = -Wall -lpthread
+
+CLIENT_SRC = src/client.c src/socket.c
+OBJ = $(CLIENT_SRC:.c=.o)
+
+CLIENT_EXE = client
+SERVEUR_SRC = serveur
 
 all: client serveur
 
-client : $(OBJ_CLIENT) $(HEADERS)
-	$(CC) -Wall -o $@ $^ -lpthread
+client: $(CLIENT_SRC) src/client.o headers/socket.h
+	$(CC) $(CFLAGS) $(CLIENT_SRC) -o client
 
-serveur : $(OBJ_SERVEUR) $(HEADERS)
-	$(CC) -Wall -o $@ $^ -lpthread
+serveur: $(SERVEUR_SRC) src/serveur.o headers/socket.h
+	$(CC) $(CFLAGS) src/serveur.c src/socket.c -o serveur
 
 clean:
-	@echo "Nettoyage ..."
-	@rm -rf $(OBJ) client serveur
-	@echo "Nettoyage terminé !"
+	rm -f $(OBJ) src/serveur.o client serveur
 
 .PHONY: clean
