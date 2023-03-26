@@ -76,7 +76,7 @@ void connexion(int sock){
   }
   
   printf("%s\n", msg2);
-  //nettoyage();
+  nettoyage();
   //saisie de l'id 
   fgets(id_str, 11, stdin);
   strtok(id_str, "\n"); 
