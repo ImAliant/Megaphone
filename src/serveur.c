@@ -121,7 +121,7 @@ void connexion(int sock){
     }
     printf("Id recu : %s\n", id_str);
     
-    //verification de l'id et du pseudo
+    //TODO: verfication to be fixed ! verification de l'id et du pseudo
     int i;
     user_id = atoi(id_str);
     for(i=0; i<nb_utilisateurs; i++){
