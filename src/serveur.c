@@ -8,6 +8,7 @@
 #include <pthread.h>
 
 #include "../headers/socket.h"
+#include "../headers/billet.h"
 
 #define MAX_USERNAME_LEN 10
 #define SIZE_MESS 100
@@ -23,6 +24,8 @@ typedef struct {
 } utilisateur;
 
 utilisateur liste[SIZE_MAX_LISTE];
+
+
 
 int generate_user_id() {
     static int current_user_id = 0;
@@ -59,6 +62,91 @@ int demande_inscription(int sock) {
     return c=='o'?1:0;
 }
 
+// TODO :fonction qui gere la connexion d'un client deja inscrit 
+void connexion(int sock){
+    char username[MAX_USERNAME_LEN+1];
+    int user_id;
+    char id_str[12];
+    // Demande au client de se connecter
+    char * message = "Entrez votre pseudo :";
+    if(send(sock, message, strlen(message), 0) <= 0){
+        perror("send");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    //reception du pseudo du client
+    int recu = recv(sock, username, MAX_USERNAME_LEN, 0);
+    if (recu < 0){
+        perror("recv");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    if(recu == 0){
+        fprintf(stderr, "send du client nul\n");
+        close(sock);
+    }
+    printf("Pseudo recu : %s\n", username);
+    
+    // Completion du pseudo avec des #
+    int len = strlen(username);
+    if (len < MAX_USERNAME_LEN) {
+        memset(username+len, '#', MAX_USERNAME_LEN-len);
+        username[MAX_USERNAME_LEN] = '\0';
+    }
+    // demande de l'id du client
+    char * message2 = "Entrez votre id :";
+    if(send(sock, message2, SIZE_MESS, 0) <= 0){
+        perror("send");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    //reception de l'id du client
+    recu = recv(sock, id_str, 12, 0);
+    if (recu < 0){
+        perror("recv");
+        close(sock);
+        int *ret = malloc(sizeof(int));
+        *ret = 1;
+        pthread_exit(ret);
+    }
+    if(recu == 0){
+        fprintf(stderr, "send du client nul\n");
+        close(sock);
+    }
+    printf("Id recu : %s\n", id_str);
+    
+    //verification de l'id et du pseudo
+    int i;
+    user_id = atoi(id_str);
+    for(i=0; i<nb_utilisateurs; i++){
+        if((strcmp(liste[i].pseudo, username) == 0 )&& (liste[i].id == user_id)){
+            printf("Connexion reussie\n");
+            break;
+        }
+        else{
+            printf("Connexion echouee\n");
+            close(sock);
+            exit(1);
+        }
+    }
+
+close(sock);
+
+
+
+
+}
+
+
+
+
+
 void inscription(int sock) {
     char username[MAX_USERNAME_LEN+1];
     int user_id;
@@ -89,6 +177,7 @@ void inscription(int sock) {
         return;
     }
     printf("Pseudo recu : %s\n", username);
+    
     
     // Completion du pseudo avec des #
     int len = strlen(username);
@@ -128,6 +217,8 @@ void *serve(void *arg) {
         inscription(sock);
     }
     else if (r == 0) {
+        connexion(sock);
+        
 
     }
     else {
