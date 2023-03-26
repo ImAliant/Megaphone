@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <ctype.h>
+
 #include "../headers/socket.h"
 #include "../headers/billet.h"
 
@@ -19,13 +21,11 @@ int nb_utilisateurs = 0;
 
 //LISTE DES INSCRITS
 typedef struct {
-    char pseudo[MAX_USERNAME_LEN];
+    char *pseudo;
     uint16_t id;
 } utilisateur;
 
 utilisateur liste[SIZE_MAX_LISTE];
-
-
 
 int generate_user_id() {
     static int current_user_id = 0;
@@ -35,6 +35,7 @@ int generate_user_id() {
 }
 
 void create_new_user(char *username, int user_id) {
+    liste[nb_utilisateurs].pseudo = malloc(sizeof(char*)*MAX_USERNAME_LEN);
     strcpy(liste[nb_utilisateurs].pseudo, username);
     liste[nb_utilisateurs].id = user_id;
     nb_utilisateurs++;
@@ -60,6 +61,16 @@ int demande_inscription(int sock) {
     printf("Reponse inscription recu : %c\n", c);
 
     return c=='o'?1:0;
+}
+
+void remove_special_chars(char *str) {
+    int i, j;
+    for (i = 0, j = 0; str[i]; i++) {
+        if (!isspace(str[i]) && isprint(str[i])) {
+            str[j++] = str[i];
+        }
+    }
+    str[j] = '\0';
 }
 
 // TODO :fonction qui gere la connexion d'un client deja inscrit 
@@ -96,6 +107,7 @@ void connexion(int sock){
     if (len < MAX_USERNAME_LEN) {
         memset(username+len, '#', MAX_USERNAME_LEN-len);
         username[MAX_USERNAME_LEN] = '\0';
+        remove_special_chars(username);
     }
     // demande de l'id du client
     char * message2 = "Entrez votre id :";
@@ -121,11 +133,10 @@ void connexion(int sock){
     }
     printf("Id recu : %s\n", id_str);
     
-    //TODO: verfication to be fixed ! verification de l'id et du pseudo
     int i;
     user_id = atoi(id_str);
     for(i=0; i<nb_utilisateurs; i++){
-        if((strcmp(liste[i].pseudo, username) == 0 )&& (liste[i].id == user_id)){
+        if((strcmp(liste[i].pseudo, username) == 0 )&&(liste[i].id == user_id)){
             printf("Connexion reussie\n");
             break;
         }
@@ -136,16 +147,8 @@ void connexion(int sock){
         }
     }
 
-close(sock);
-
-
-
-
+    close(sock);
 }
-
-
-
-
 
 void inscription(int sock) {
     char username[MAX_USERNAME_LEN+1];
@@ -184,6 +187,7 @@ void inscription(int sock) {
     if (len < MAX_USERNAME_LEN) {
         memset(username+len, '#', MAX_USERNAME_LEN-len);
         username[MAX_USERNAME_LEN] = '\0';
+        remove_special_chars(username);
     }
 
     user_id = generate_user_id();

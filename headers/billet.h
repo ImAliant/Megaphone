@@ -6,6 +6,6 @@ struct billet {
     int idClient;
     int idThread;
     char contenu[MAX_LENGTH];
-    
 };
+
 #endif 
