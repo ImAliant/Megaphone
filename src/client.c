@@ -8,125 +8,46 @@
 
 #include "../headers/socket.h"
 #include "../headers/billet.h"
+#include "../headers/func/func_client.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
 
-void nettoyage() {
-    fflush(stdout);
-    fflush(stdin);
-
-    int c;
-    while((c = getchar()) != '\n' && c != EOF);
-}
-
-int rep_demande_inscription(int fdsock) {
-    char buf[SIZE_MESS];
-    int recu = recv(fdsock, buf, SIZE_MESS, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    buf[recu] = '\0';
-    printf("%s\n", buf);
-
-    memset(buf, 0, SIZE_MESS);
-    fgets(buf, 2, stdin);
-
-    int ecrit = send(fdsock, buf, strlen(buf), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
-
-	return strcmp(buf, "o") == 0 ? 1 : 0;
-}
-
 //connexion du client au serveur
 void connexion(int sock){
-  char username[MAX_USERNAME_LEN+1];
-  int user_id;
-  char id_str[12];
+    char username[MAX_USERNAME_LEN+1];
+    char id_str[12];
 
+    // Reception du message concernant la connexion
+    recep_demande(sock);
+    
+    saisie_pseudo(username);
+    
+    envoie_pseudo(sock, username);
+    
+    // Reception du message concernant l'id
+    recep_demande(sock);
 
-  //Reception de la demande de connexion
-  char msg[SIZE_MESS];
-  if(recv(sock, msg, SIZE_MESS, 0) <= 0){
-    perror("erreur lecture");
-    exit(4);
-  }
-  printf("%s\n", msg);
-  nettoyage();
-  //Saisie du pseudo
-  fgets(username, MAX_USERNAME_LEN+1, stdin);
-  strtok(username, "\n");
-  //envoie pseud
-  if(send(sock, username, strlen(username), 0) <= 0){
-    perror("erreur ecriture");
-    exit(3);
-  }
-  //reception de la saisie  l'id
-  
-  char msg2[SIZE_MESS];
-  
-  
-  if(recv(sock, msg2, SIZE_MESS, 0) <= 0){
-    perror("erreur lecture");
-    exit(4);
-  }
-  
-  printf("%s\n", msg2);
-  nettoyage();
-  //saisie de l'id 
-  fgets(id_str, 11, stdin);
-  strtok(id_str, "\n"); 
-  //envoie de l'id
-  
-  if(send(sock, id_str, 11, 0) <= 0){
-    perror("erreur ecriture");
-    exit(3);
-  }
+    saisie_id(id_str);
+    
+    envoie_id(sock, id_str);
 
-close(sock);
-
+    close(sock);
 }
-
-
-
 
 void inscription(int sock) {
     char username[MAX_USERNAME_LEN+1];
     int user_id=0;
     char id_str[12];
 
-    // Reception de la demande d'inscription
-    char msg[SIZE_MESS];
-    int recu = recv(sock, msg, SIZE_MESS, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    printf("%s\n", msg);
-    // !!!!!!!!!!!!
-    nettoyage();
+    // Reception de la demande du pseudo
+    recep_demande(sock);
 
-    // Saisie du pseudo
-    fgets(username, MAX_USERNAME_LEN+1, stdin);
-    strtok(username, "\n");
+    saisie_pseudo(username);
 
-    // Envoi du pseudo
-    int ecrit = send(sock, username, strlen(username), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
+    envoie_pseudo(sock, username);
 
-    // Reception de l'id
-    recu = recv(sock, id_str, 12, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
+    recep_id(sock, id_str);
 
     user_id = atoi(id_str);
 
