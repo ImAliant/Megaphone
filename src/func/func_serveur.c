@@ -10,23 +10,27 @@
 #include "../../headers/socket.h"
 #include "../../headers/users.h"
 #include "../../headers/func/func_serveur.h"
+#include "../../headers/request_definition.h"
 
 #define SIZE_MESS 100
 #define MAX_USERS 100
 #define MAX_USERNAME_LEN 10
-
-#define REQ_INSCRIPTION 1
-#define REQ_POST_BILLET 2
-#define REQ_GET_BILLET 3
-#define REQ_SUBSCRIBE 4
-#define REQ_ADD_FILE 5
-#define REQ_DW_FILE 6
 
 int generate_user_id() {
     static int current_user_id = 0;
     current_user_id++;
     current_user_id &= 0x7FF;
     return current_user_id;
+}
+
+void create_new_user(char *username, int user_id, utilisateur liste[], int nb_utilisateurs) {
+    utilisateur user;
+    user.pseudo = malloc(sizeof(char*)*MAX_USERS);
+    strcpy(user.pseudo, username);
+    user.id = user_id;
+
+    liste[nb_utilisateurs] = user;
+    nb_utilisateurs++;
 }
 
 uint16_t recv_header_client(int sock_client, char *buf, uint16_t header_client) {
@@ -46,7 +50,7 @@ uint16_t recv_header_client(int sock_client, char *buf, uint16_t header_client) 
     return header_client;
 }
 
-void inscription_request(int sock_client, char *buf) {
+int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_utilisateurs) {
     uint16_t header_serv, id;
     uint8_t codereq_serv;
     char username[MAX_USERNAME_LEN+1];
@@ -57,7 +61,7 @@ void inscription_request(int sock_client, char *buf) {
 
     id = generate_user_id();
 
-    create_new_user(username, id);
+    create_new_user(username, id, liste, nb_utilisateurs);
 
     codereq_serv = REQ_INSCRIPTION;
 
@@ -72,6 +76,8 @@ void inscription_request(int sock_client, char *buf) {
         close(sock_client);
         exit(1);
     }
+
+    return 0;
 }
 
 void error_request(int sock_client, uint8_t codereq_client, uint16_t id) {

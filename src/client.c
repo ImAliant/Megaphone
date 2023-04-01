@@ -13,25 +13,6 @@
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
 
-void remove_special_chars(char *str) {
-    int i, j;
-    for (i = 0, j = 0; str[i]; i++) {
-        if (!isspace(str[i]) && isprint(str[i])) {
-            str[j++] = str[i];
-        }
-    }
-    str[j] = '\0';
-}
-
-void completion_pseudo(char *username) {
-    int len = strlen(username);
-    if (len < MAX_USERNAME_LEN) {
-        memset(username+len, '#', MAX_USERNAME_LEN-len);
-        username[MAX_USERNAME_LEN] = '\0';
-        remove_special_chars(username);
-    }
-}
-
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);

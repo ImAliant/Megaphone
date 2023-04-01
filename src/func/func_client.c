@@ -6,7 +6,9 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "../headers/request_definition.h"
+#include "../../headers/socket.h"
+#include "../../headers/func/func_client.h"
+#include "../../headers/request_definition.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
@@ -15,6 +17,25 @@ void error_request(uint8_t codereq_serv) {
     if (codereq_serv < 0 && codereq_serv > 6) {
         printf("ERREUR : REQUETE INVALIDE <%d> \n", codereq_serv);
         exit(1);
+    }
+}
+
+void remove_special_chars(char *str) {
+    int i, j;
+    for (i = 0, j = 0; str[i]; i++) {
+        if (!isspace(str[i]) && isprint(str[i])) {
+            str[j++] = str[i];
+        }
+    }
+    str[j] = '\0';
+}
+
+void completion_pseudo(char *username) {
+    int len = strlen(username);
+    if (len < MAX_USERNAME_LEN) {
+        memset(username+len, '#', MAX_USERNAME_LEN-len);
+        username[MAX_USERNAME_LEN] = '\0';
+        remove_special_chars(username);
     }
 }
 
@@ -39,7 +60,8 @@ void header_username_buffer(char *buf, uint16_t header_client, char *username) {
     buf[sizeof(header_client)+strlen(username)] = '\0';
 }
 
-void connexion_server(char *hostname, char *port, int sock) {
+int connexion_server(char *hostname, char *port) {
+    int sock;
     struct sockaddr_in6* server_addr;
     int adrlen;
 
@@ -52,12 +74,14 @@ void connexion_server(char *hostname, char *port, int sock) {
         fprintf(stderr, "Erreur: echec de creation de la socket.\n");
     exit(1);
     }
+
+    return sock;
 }
 
 void inscription_request(char *hostname, char *port) {
     int sock;
     uint16_t header_client, header_serv, id_serv;
-    uint8_t codereq_serv, codereq_client;
+    uint8_t codereq_serv;
     char username[MAX_USERNAME_LEN+1];
     char buf[SIZE_MESS];
     
@@ -69,7 +93,7 @@ void inscription_request(char *hostname, char *port) {
 
     header_username_buffer(buf, header_client, username);
 
-    connexion_server(hostname, port, sock);
+    sock = connexion_server(hostname, port);
 
     // ENVOI ENTETE + PSEUDO
     int ecrit = send(sock, buf, sizeof(header_client)+strlen(username), 0);

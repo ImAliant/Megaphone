@@ -19,20 +19,11 @@ int nb_utilisateurs = 0;
 
 utilisateur liste[MAX_USERS];
 
-void create_new_user(char *username, int user_id) {
-    utilisateur user;
-    user.pseudo = malloc(sizeof(char*)*MAX_USERS);
-    strcpy(user.pseudo, username);
-    user.id = user_id;
-
-    liste[nb_utilisateurs] = user;
-    nb_utilisateurs++;
-}
-
 void loop_communication_server_client(int sock) {
+    int r;
     while(1) {
-        uint16_t header_client, header_serv, id;
-        uint8_t codereq_client, codereq_serv;
+        uint16_t header_client, id;
+        uint8_t codereq_client;
         struct sockaddr_in6 adr;
         socklen_t lg = sizeof(struct sockaddr_in6);
 
@@ -48,7 +39,8 @@ void loop_communication_server_client(int sock) {
         switch(codereq_client) 
         {
             case REQ_INSCRIPTION:
-                inscription_request(sock_client, buf);
+                r = inscription_request(sock_client, buf, liste, nb_utilisateurs);
+                if (r==0) nb_utilisateurs++;
                 break;
             case REQ_POST_BILLET:
             case REQ_GET_BILLET:
@@ -69,7 +61,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    int port, sock, r;
+    int port, sock;
     struct sockaddr_in6 address_sock;
     
     port = atoi(argv[1]);

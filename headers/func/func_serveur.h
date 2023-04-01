@@ -10,7 +10,7 @@ int generate_user_id();
 uint16_t recv_header_client(int, char *, uint16_t);
 
 // Requete d'inscription
-void inscription_request(int, char *);
+int inscription_request(int, char *, utilisateur[], int);
 
 // Requete d'erreur
 void error_request(int, uint8_t, uint16_t);
