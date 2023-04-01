@@ -1,85 +1,99 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
+#include <unistd.h>
+#include <ctype.h>
+
+#include "../headers/request_definition.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
 
-void nettoyage() {
-    fflush(stdout);
-    fflush(stdin);
-
-    int c;
-    while((c = getchar()) != '\n' && c != EOF);
+void error_request(uint8_t codereq_serv) {
+    if (codereq_serv < 0 && codereq_serv > 6) {
+        printf("ERREUR : REQUETE INVALIDE <%d> \n", codereq_serv);
+        exit(1);
+    }
 }
 
-int rep_demande_inscription(int fdsock) {
+void demande_pseudo(char *username) {
+    printf("Saisir votre pseudo : ");
+    memset(username, 0, MAX_USERNAME_LEN+1);
+    fgets(username, MAX_USERNAME_LEN, stdin);
+    completion_pseudo(username);
+    printf("PSEUDO : %s \n", username);
+}
+
+uint16_t create_header(uint8_t codereq_client) {
+    uint16_t id = 0;
+    uint16_t header_client = htons((id << 5) | (codereq_client & 0x1F));
+
+    return header_client;
+}
+
+void header_username_buffer(char *buf, uint16_t header_client, char *username) {
+    memcpy(buf, &header_client, sizeof(header_client));
+    memcpy(buf+sizeof(header_client), username, strlen(username));
+    buf[sizeof(header_client)+strlen(username)] = '\0';
+}
+
+void connexion_server(char *hostname, char *port, int sock) {
+    struct sockaddr_in6* server_addr;
+    int adrlen;
+
+    switch (get_server_addr(hostname, port, &sock, &server_addr, &adrlen)) 
+    {
+    case 0: printf("adresse creee !\n"); break;
+    case -1:
+        fprintf(stderr, "Erreur: hote non trouve.\n"); 
+    case -2:
+        fprintf(stderr, "Erreur: echec de creation de la socket.\n");
+    exit(1);
+    }
+}
+
+void inscription_request(char *hostname, char *port) {
+    int sock;
+    uint16_t header_client, header_serv, id_serv;
+    uint8_t codereq_serv, codereq_client;
+    char username[MAX_USERNAME_LEN+1];
     char buf[SIZE_MESS];
-    int recu = recv(fdsock, buf, SIZE_MESS+1, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    buf[recu] = '\0';
-    printf("%s\n", buf);
+    
+    codereq_serv = REQ_INSCRIPTION;
+    
+    header_client = create_header(codereq_serv);
 
+    demande_pseudo(username);
+
+    header_username_buffer(buf, header_client, username);
+
+    connexion_server(hostname, port, sock);
+
+    // ENVOI ENTETE + PSEUDO
+    int ecrit = send(sock, buf, sizeof(header_client)+strlen(username), 0);
+    if(ecrit <= 0){
+        perror("erreur ecriture");
+        exit(3);
+    }
+
+    // RECEPTION ENTETE + ID
     memset(buf, 0, SIZE_MESS);
-    fgets(buf, 2, stdin);
-
-    int ecrit = send(fdsock, buf, strlen(buf), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
+    int r = recv(sock, buf, SIZE_MESS, 0);
+    if(r <= 0){
+        perror("erreur lecture");
+        exit(4);
     }
 
-	return strcmp(buf, "i") == 0 ? 1 : 0;
-}
+    // DECODAGE ENTETE + ID
+    memcpy(&header_serv, buf, sizeof(header_serv));
+    id_serv = ntohs(header_serv) >> 5;
+    codereq_serv = ntohs(header_serv) & 0x1F;
+    
+    error_request(codereq_serv);
 
-void recep_demande(int sock) {
-    char msg[SIZE_MESS];
-    int recu = recv(sock, msg, SIZE_MESS+1, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    printf("%s\n", msg);
-    nettoyage();
-}
+    printf("VOICI VOTRE ID : %d \n", id_serv);
 
-void envoie_pseudo(int sock, char *username) {
-    int ecrit = send(sock, username, strlen(username), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
-}
-
-void envoie_id(int sock, char *id_str) {
-    int ecrit = send(sock, id_str, 11, 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
-}
-
-void saisie_pseudo(char *username) {
-    fgets(username, MAX_USERNAME_LEN+1, stdin);
-    strtok(username, "\n");
-}
-
-void saisie_id(char *id_str) {
-    fgets(id_str, 11, stdin);
-    strtok(id_str, "\n");
-}
-
-void recep_id(int sock, char *id_str) {
-    int recu = recv(sock, id_str, 12, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
+    close(sock);
 }

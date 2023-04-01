@@ -1,92 +1,74 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
+#include <unistd.h>
+#include <ctype.h>
 
 #include "../headers/socket.h"
-#include "../headers/billet.h"
+#include "../headers/request_definition.h"
 #include "../headers/func/func_client.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
 
-//connexion du client au serveur
-void connexion(int sock){
-    char username[MAX_USERNAME_LEN+1];
-    char id_str[12];
-
-    // Reception du message concernant la connexion
-    recep_demande(sock);
-    
-    saisie_pseudo(username);
-    
-    envoie_pseudo(sock, username);
-    
-    // Reception du message concernant l'id
-    recep_demande(sock);
-
-    saisie_id(id_str);
-    
-    envoie_id(sock, id_str);
-
-    close(sock);
+void remove_special_chars(char *str) {
+    int i, j;
+    for (i = 0, j = 0; str[i]; i++) {
+        if (!isspace(str[i]) && isprint(str[i])) {
+            str[j++] = str[i];
+        }
+    }
+    str[j] = '\0';
 }
 
-void inscription(int sock) {
-    char username[MAX_USERNAME_LEN+1];
-    int user_id=0;
-    char id_str[12];
-
-    // Reception de la demande du pseudo
-    recep_demande(sock);
-
-    saisie_pseudo(username);
-
-    envoie_pseudo(sock, username);
-
-    recep_id(sock, id_str);
-
-    user_id = atoi(id_str);
-
-    printf("Inscription reussie ! Votre identifiant est %d\n", user_id);
-
-    close(sock);
+void completion_pseudo(char *username) {
+    int len = strlen(username);
+    if (len < MAX_USERNAME_LEN) {
+        memset(username+len, '#', MAX_USERNAME_LEN-len);
+        username[MAX_USERNAME_LEN] = '\0';
+        remove_special_chars(username);
+    }
 }
 
-int main(int argc, char** args) {
+int main(int argc, char *argv[]) {
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <hostname> <port>\n", args[0]);
+        fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
         exit(1);
-    }
-    
-    struct sockaddr_in6* server_addr;
-    int fdsock, adrlen;
-    
-    switch (get_server_addr(args[1], args[2], &fdsock, &server_addr, &adrlen)) {
-    case 0: printf("adresse creee !\n"); break;
-    case -1:
-      fprintf(stderr, "Erreur: hote non trouve.\n"); 
-    case -2:
-      fprintf(stderr, "Erreur: echec de creation de la socket.\n");
-      exit(1);
     }
 
-    // Le serveur nous envoie un message de bienvenue et nous demande si nous voulons nous inscrire ou nous connecter
-    
-    int r = rep_demande_inscription(fdsock);
-    
-	if (r == 1) {
-        inscription(fdsock);
-    }else if (r == 0) {
-        connexion(fdsock);
-    }else {
-        fprintf(stderr, "Erreur: reponse incorrecte.\n");
+    printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
+    char buf[SIZE_MESS];
+    memset(buf, 0, SIZE_MESS);
+    fgets(buf, SIZE_MESS, stdin);
+    buf[strlen(buf)-1] = '\0';
+
+    if (strcmp(buf, "o") != 0 && strcmp(buf, "n") != 0) {
+        printf("ERREUR : Veuillez saisir 'o' ou 'n' \n");
         exit(1);
     }
-    close(fdsock);
     
-    return 0;
+    if (strcmp(buf, "o") == 0) {
+        printf("CHOIX REQUETE : \n <2> POST BILLET \n <3> DEMANDER N BILLETS \n <4> ABONNEMENTS FIL \n <5> AJOUTER UN FICHIER \n <6> TELECHARGER UN FICHIER \n");
+        memset(buf, 0, SIZE_MESS);
+        fgets(buf, SIZE_MESS, stdin);
+        
+        uint8_t codereq_client = atoi(buf);
+
+        switch (codereq_client)
+        {
+        case REQ_POST_BILLET:
+        case REQ_GET_BILLET:
+        case REQ_SUBSCRIBE:
+        case REQ_ADD_FILE:
+        case REQ_DW_FILE:
+            break;
+        }
+    }
+    else {
+        char *hostname = argv[1];
+        char *port = argv[2];
+        inscription_request(hostname, port);
+    }
 }
