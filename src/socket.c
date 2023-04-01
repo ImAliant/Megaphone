@@ -19,6 +19,16 @@ int creation_socket() {
     return sock;
 }
 
+int accept_connexion(int sock, struct sockaddr_in6 adr, socklen_t lg) {
+    int sock_client = accept(sock, (struct sockaddr *)&adr, &lg);
+    if(sock_client < 0){
+        perror("accept");
+        exit(1);
+    }
+
+    return sock_client;
+}
+
 void addresse_destinataire(int port, struct sockaddr_in6 *address_sock){
     address_sock->sin6_family = AF_INET6;
     address_sock->sin6_port = htons(port);

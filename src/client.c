@@ -1,114 +1,55 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
+#include <unistd.h>
+#include <ctype.h>
 
 #include "../headers/socket.h"
+#include "../headers/request_definition.h"
+#include "../headers/func/func_client.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
 
-void nettoyage() {
-    fflush(stdout);
-    fflush(stdin);
-
-    int c;
-    while((c = getchar()) != '\n' && c != EOF);
-}
-
-int rep_demande_inscription(int fdsock) {
-    char buf[SIZE_MESS];
-    int recu = recv(fdsock, buf, SIZE_MESS, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    buf[recu] = '\0';
-    printf("%s\n", buf);
-
-    memset(buf, 0, SIZE_MESS);
-    fgets(buf, 2, stdin);
-
-    int ecrit = send(fdsock, buf, strlen(buf), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
-
-	return strcmp(buf, "o") == 0 ? 1 : 0;
-}
-
-void inscription(int sock) {
-    char username[MAX_USERNAME_LEN+1];
-    int user_id;
-    char id_str[12];
-
-    // Reception de la demande d'inscription
-    char msg[SIZE_MESS];
-    int recu = recv(sock, msg, SIZE_MESS, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-    printf("%s\n", msg);
-    
-    nettoyage();
-
-    // Saisie du pseudo
-    fgets(username, MAX_USERNAME_LEN+1, stdin);
-    strtok(username, "\n");
-
-    // Envoi du pseudo
-    int ecrit = send(sock, username, strlen(username), 0);
-    if(ecrit <= 0){
-      perror("erreur ecriture");
-      exit(3);
-    }
-
-    // Reception de l'id
-    recu = recv(sock, id_str, 11, 0);
-    if (recu <= 0){
-      perror("erreur lecture");
-      exit(4);
-    }
-
-    user_id = atoi(id_str);
-
-    printf("Inscription reussie ! Votre identifiant est %d\n", user_id);
-
-    close(sock);
-}
-
-int main(int argc, char** args) {
+int main(int argc, char *argv[]) {
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <hostname> <port>\n", args[0]);
+        fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
+        exit(1);
+    }
+
+    printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
+    char buf[SIZE_MESS];
+    memset(buf, 0, SIZE_MESS);
+    fgets(buf, SIZE_MESS, stdin);
+    buf[strlen(buf)-1] = '\0';
+
+    if (strcmp(buf, "o") != 0 && strcmp(buf, "n") != 0) {
+        printf("ERREUR : Veuillez saisir 'o' ou 'n' \n");
         exit(1);
     }
     
-    struct sockaddr_in6* server_addr;
-    int fdsock, adrlen;
-    
-    switch (get_server_addr(args[1], args[2], &fdsock, &server_addr, &adrlen)) {
-    case 0: printf("adresse creee !\n"); break;
-    case -1:
-      fprintf(stderr, "Erreur: hote non trouve.\n"); 
-    case -2:
-      fprintf(stderr, "Erreur: echec de creation de la socket.\n");
-      exit(1);
-    }
+    if (strcmp(buf, "o") == 0) {
+        printf("CHOIX REQUETE : \n <2> POST BILLET \n <3> DEMANDER N BILLETS \n <4> ABONNEMENTS FIL \n <5> AJOUTER UN FICHIER \n <6> TELECHARGER UN FICHIER \n");
+        memset(buf, 0, SIZE_MESS);
+        fgets(buf, SIZE_MESS, stdin);
+        
+        uint8_t codereq_client = atoi(buf);
 
-    // Le serveur nous envoie un message de bienvenue et nous demande si nous voulons nous inscrire ou nous connecter
-    
-    int r = rep_demande_inscription(fdsock);
-    
-	if (r == 1) {
-        inscription(fdsock);
+        switch (codereq_client)
+        {
+        case REQ_POST_BILLET:
+        case REQ_GET_BILLET:
+        case REQ_SUBSCRIBE:
+        case REQ_ADD_FILE:
+        case REQ_DW_FILE:
+            break;
+        }
     }
-
-    close(fdsock);
-    
-    return 0;
+    else {
+        char *hostname = argv[1];
+        char *port = argv[2];
+        inscription_request(hostname, port);
+    }
 }

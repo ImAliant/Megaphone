@@ -5,179 +5,65 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <ctype.h>
 
 #include "../headers/socket.h"
+#include "../headers/users.h"
+#include "../headers/request_definition.h"
+#include "../headers/func/func_serveur.h"
 
-#define MAX_USERNAME_LEN 10
 #define SIZE_MESS 100
-#define SIZE_MAX_LISTE 100
-#define NOM "Cerise"
+#define MAX_USERS 100
 
 int nb_utilisateurs = 0;
 
-//LISTE DES INSCRITS
-typedef struct {
-    char pseudo[MAX_USERNAME_LEN];
-    uint16_t id;
-} utilisateur;
+utilisateur liste[MAX_USERS];
 
-utilisateur liste[SIZE_MAX_LISTE];
-
-int generate_user_id() {
-    static int current_user_id = 0;
-    current_user_id++;
-    current_user_id &= 0x7FF;
-    return current_user_id;
-}
-
-void create_new_user(char *username, int user_id) {
-    strcpy(liste[nb_utilisateurs].pseudo, username);
-    liste[nb_utilisateurs].id = user_id;
-    nb_utilisateurs++;
-}
-
-int demande_inscription(int sock) {
-    char c;
-    int ecrit = send(sock, "Voulez-vous vous inscrire (o/n) ?", 33, 0);
-    if(ecrit <= 0)
-        perror("send");
-    int recu = recv(sock, &c, 1, 0);
-    if (recu < 0){
-        perror("recv");
-        close(sock);
-        int *ret = malloc(sizeof(int));
-        *ret = 1;
-        pthread_exit(ret);
-    }
-    if(recu == 0){
-        fprintf(stderr, "send du client nul\n");
-        close(sock);
-    }
-    printf("Reponse inscription recu : %c\n", c);
-
-    return c=='o'?1:0;
-}
-
-void inscription(int sock) {
-    char username[MAX_USERNAME_LEN+1];
-    int user_id;
-
-    // Demande au client de s'inscrire
-    char *message = "Entrez votre pseudo (max 10 caracteres):";
-    int ecrit = send(sock, message, strlen(message), 0);
-    if(ecrit <= 0) {
-        perror("send");
-        close(sock);
-        int *ret = malloc(sizeof(int));
-        *ret = 1;
-        pthread_exit(ret);
-    }
-
-    // Reception du pseudo du client
-    int recu = recv(sock, username, MAX_USERNAME_LEN, 0);
-    if (recu < 0){
-        perror("recv");
-        close(sock);
-        int *ret = malloc(sizeof(int));
-        *ret = 1;
-        pthread_exit(ret);
-    }
-    if(recu == 0){
-        fprintf(stderr, "send du client nul\n");
-        close(sock);
-        return;
-    }
-    printf("Pseudo recu : %s\n", username);
-    
-    // Completion du pseudo avec des #
-    int len = strlen(username);
-    if (len < MAX_USERNAME_LEN) {
-        memset(username+len, '#', MAX_USERNAME_LEN-len);
-        username[MAX_USERNAME_LEN] = '\0';
-    }
-
-    user_id = generate_user_id();
-    create_new_user(username, user_id);
-
-    char id_str[12];
-    snprintf(id_str, 12, "%11d", user_id);
-    ecrit = send(sock, id_str, 11, 0);
-    if(ecrit <= 0) {
-        perror("send");
-        close(sock);
-        int *ret = malloc(sizeof(int));
-        *ret = 1;
-        pthread_exit(ret);
-    }
-
-    close(sock);
-}
-
-void *serve(void *arg) {
-    int sock = *((int *) arg);
-    char buf[SIZE_MESS];
-    memset(buf, 0, sizeof(buf));
-
-    // On demande a l'utilisateur si il veut s'inscrire ou se connecter
-    int r = demande_inscription(sock);
-    
-    // On traite le cas ou l'utilisateur veut s'inscrire
-    // On recupere le pseudo
-    if (r == 1) {
-        inscription(sock);
-    }
-    else if (r == 0) {
-
-    }
-    else {
-        fprintf(stderr, "Erreur de saisie\n");
-        close(sock);
-        int *ret = malloc(sizeof(int));
-        *ret = 1;
-        pthread_exit(ret);
-    }
-
-    return NULL;
-}
-
-int loop_connexion_communication(struct sockaddr_in6 adrclient, int sock) {
+void loop_communication_server_client(int sock) {
+    int r;
     while(1) {
-        memset(&adrclient, 0, sizeof(adrclient));
-        socklen_t size=sizeof(adrclient);
+        uint16_t header_client, id;
+        uint8_t codereq_client;
+        struct sockaddr_in6 adr;
+        socklen_t lg = sizeof(struct sockaddr_in6);
 
-        //*** On crée la variable sur le tas ***
-        int *sockclient = malloc(sizeof(int));
+        int sock_client = accept_connexion(sock, adr, &lg);
 
-        //*** Le serveur accepte une connexion et initialise la socket de communication avec le client ***
-        *sockclient = accept(sock, (struct sockaddr *) &adrclient, &size);
+        char buf[SIZE_MESS];
+        memset(buf, 0, SIZE_MESS);
 
-        if (sockclient >= 0) {
-            pthread_t thread;
+        header_client = recv_header_client(sock_client, buf, header_client);
+        codereq_client = ntohs(header_client) & 0x1F;
+        id = ntohs(header_client) >> 5;
 
-            //*** Le serveur crée un thread et passe un pointeur sur socket client à la fonction serve ***
-            if (pthread_create(&thread, NULL, serve, sockclient) == -1) {
-                perror("pthread_create");
-                continue;
-            }
-            //*** Affichage de l'adresse du client ***
-            char nom_dst[INET6_ADDRSTRLEN];
-            const char *inet = inet_ntop(AF_INET6, &adrclient.sin6_addr, nom_dst, sizeof(nom_dst));
-            int port = htons(adrclient.sin6_port);
-            printf("client connecte : %s %d\n", inet, port);
+        switch(codereq_client) 
+        {
+            case REQ_INSCRIPTION:
+                r = inscription_request(sock_client, buf, liste, nb_utilisateurs);
+                if (r==0) nb_utilisateurs++;
+                break;
+            case REQ_POST_BILLET:
+            case REQ_GET_BILLET:
+            case REQ_SUBSCRIBE:
+            case REQ_ADD_FILE:
+            case REQ_DW_FILE:
+                break;
+            default:
+                error_request(sock_client, codereq_client, id);
+                break;
         }
     }
 }
- 
-int main(int argc, char *argv[]){
-    struct sockaddr_in6 address_sock, adrclient;
-    int port, sock;
 
+int main(int argc, char *argv[]) {
     if(argc != 2){
         fprintf(stderr, "usage : ./serveur <PORT>\n");
         exit(1);
     }
 
+    int port, sock;
+    struct sockaddr_in6 address_sock;
+    
     port = atoi(argv[1]);
     addresse_destinataire(port, &address_sock);
 
@@ -191,9 +77,9 @@ int main(int argc, char *argv[]){
 
     listen_port(sock);
 
-    loop_connexion_communication(adrclient, sock);
+    loop_communication_server_client(sock);
 
     close(sock);
-    
+
     return 0;
 }
