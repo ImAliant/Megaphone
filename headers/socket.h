@@ -9,6 +9,9 @@
 // Creation de la socket
 int creation_socket();
 
+// On accepte la connexion du client
+int accept_connexion(int, struct sockaddr_in6, socklen_t);
+
 // Creation de l'adresse du destinataire (serveur)
 void addresse_destinataire(int, struct sockaddr_in6*);
 
