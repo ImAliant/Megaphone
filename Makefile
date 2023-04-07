@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -Wall -lpthread
 
 CLIENT_SRC = src/client.c src/socket.c src/func/func_client.c
-SERVEUR_SRC = src/serveur.c src/socket.c src/func/func_serveur.c
+SERVEUR_SRC = src/serveur.c src/socket.c src/billet.c src/func/func_serveur.c
 
-CLIENT_HEADERS = headers/socket.h headers/func/func_client.h headers/request_definition.h
-SERVEUR_HEADERS = headers/socket.h headers/func/func_serveur.h headers/users.h headers/request_definition.h
+CLIENT_HEADERS = headers/socket.h headers/func/func_client.h headers/request.h
+SERVEUR_HEADERS = headers/socket.h headers/billet.h headers/func/func_serveur.h headers/users.h headers/request.h
 
 all: client serveur
 
