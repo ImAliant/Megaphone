@@ -108,7 +108,7 @@ int connexion_server(char *hostname, char *port) {
 
     switch (get_server_addr(hostname, port, &sock, &server_addr, &adrlen)) 
     {
-    case 0: printf("adresse creee !\n"); break;
+    case 0: break;
     case -1:
         fprintf(stderr, "Erreur: hote non trouve.\n"); 
     case -2:
