@@ -117,7 +117,138 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_
 
     return 0;
 }
+int get_nBillets_request(int sock_client, char *buf, struct fils *fils) {
+   // TRADUCTION DU MESSAGE DU CLIENT
+    uint16_t header, id, numfil, nb;
+    uint8_t codereq, lendata;
+    char data[SIZE_MESS+1];
+    memset(data, 0, SIZE_MESS);
 
+    // RECUPERATION DE L'ENTETE
+    memcpy(&header, buf, sizeof(uint16_t));
+    memcpy(&numfil, buf+sizeof(uint16_t), sizeof(uint16_t));
+    memcpy(&nb, buf+sizeof(uint16_t)*2, sizeof(uint16_t));
+    memcpy(&lendata, buf+sizeof(uint16_t)*3, sizeof(uint8_t));
+    memcpy(data, buf+sizeof(uint16_t)*3+sizeof(uint8_t), lendata);
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    // AFFICHAGE DU MESSAGE DU CLIENT
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s", codereq, id, numfil, nb, lendata, data);
+
+    //NUMERO DU FIL ET NOMBRE DE BILLETS SONT 0
+    if(numfil == 0 && nb == 0){
+        // On envoie le nombre de billets disponibles dans chaque fil
+        //afficher le nombre totale des billets envoyé au client
+        
+      
+        for(int i=0;i<fils->nb_fil;i++){
+            
+            
+            codereq = REQ_GET_BILLET;
+            header = htons((id << 5) | (codereq & 0x1F));
+            numfil = htons(numfil);
+            nb = htons(0);
+
+            memset(buf, 0, SIZE_MESS*2);
+            memcpy(buf, &header, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+            snprintf(buf,SIZE_MESS+sizeof(u_int16_t)*3 ,"le fil %d contient %d billets\n", i, fils->list_fil[i].nb_billet);
+            if(send(sock_client, buf, SIZE_MESS+sizeof(uint16_t)*3, 0)==-1)
+            {
+                perror("send");
+                close(sock_client);
+                exit(1);
+            }
+            for(int j=0;j<fils->list_fil[i].nb_billet;j++){
+               // envoyer tous les billets du fil i
+                
+               codereq = REQ_GET_BILLET;
+                header = htons((id << 5) | (codereq & 0x1F));
+                numfil = htons(numfil);
+                nb = htons(0);
+
+                memset(buf, 0, SIZE_MESS*2);
+                memcpy(buf, &header, sizeof(uint16_t));
+                memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+                memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+                snprintf(buf,SIZE_MESS+sizeof(uint16_t)*3,"le billet %d est %s \n", j, fils->list_fil[i].billets[j].contenu);
+                if( send(sock_client, buf, SIZE_MESS+sizeof(uint16_t)*3, 0) == -1){
+                perror("send");
+                return 1;
+            }
+            }
+        }
+      }else if (numfil==0 && nb!=0){
+        // on envoie les n dernier billets de chaque fil
+        for(int i =0;i<fils ->nb_fil;i++){
+            for(int j=nb;j>=fils->list_fil[i].nb_billet - nb;j--){
+               
+                codereq = REQ_GET_BILLET;
+                header = htons((id << 5) | (codereq & 0x1F));
+                numfil = htons(numfil);
+                nb = htons(0);
+
+                memset(buf, 0, SIZE_MESS*2);
+                memcpy(buf, &header, sizeof(uint16_t));
+                memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+                memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+                snprintf(buf,SIZE_MESS*2 ,"le billet %d est %s \n", j, fils->list_fil[i].billets[j].contenu);
+                if( send(sock_client, buf, SIZE_MESS+sizeof(uint16_t)*3, 0) == -1){
+                    perror("send");
+                    return 1;
+                }
+            }
+        }
+
+      }else if (numfil!=0 && nb==0){
+        // on envoie tous les billets du fil numfil
+        for(int i=0;i<fils->list_fil[numfil].nb_billet;i++){
+            
+            codereq = REQ_GET_BILLET;
+            header = htons((id << 5) | (codereq & 0x1F));
+            numfil = htons(numfil);
+            nb = htons(0);
+
+            memset(buf, 0, SIZE_MESS*2);
+            memcpy(buf, &header, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+            snprintf(buf,SIZE_MESS*2 ,"le billet %d est %s \n", i, fils->list_fil[numfil].billets[i].contenu);
+           if( send(sock_client, buf, sizeof(uint16_t)*3, 0) == -1){
+                perror("send");
+                return 1;
+            }
+         
+        }
+    }
+    else {
+        // on envoie les n dernier billets du fil numfil
+        for(int i=nb;i>=fils->list_fil[numfil].nb_billet - nb;i--){
+            
+            codereq = REQ_GET_BILLET;
+            header = htons((id << 5) | (codereq & 0x1F));
+            numfil = htons(numfil);
+            nb = htons(0);
+
+            memset(buf, 0, SIZE_MESS*2);
+            memcpy(buf, &header, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+            memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+            snprintf(buf,SIZE_MESS*2 ,"le billet %d est %s \n", i, fils->list_fil[numfil].billets[i].contenu);
+
+            if( send(sock_client, buf, SIZE_MESS+sizeof(uint16_t)*3, 0) == -1){
+                perror("send");
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
 int post_billet_request(int sock_client, char *buf, struct fils *fils) {
     // TRADUCTION DU MESSAGE DU CLIENT
     uint16_t header, id, numfil, nb;

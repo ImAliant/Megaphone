@@ -10,6 +10,7 @@
 #include "../../headers/error.h"
 #include "../../headers/func/func_client.h"
 #include "../../headers/request.h"
+#include "../../headers/billet.h"
 
 #define SIZE_MESS 100
 #define MAX_USERNAME_LEN 10
@@ -169,6 +170,101 @@ int inscription_request(char *hostname, char *port) {
 
     return 0;
 }
+
+
+
+
+
+
+//Demande de n billets pour un fil donné
+int get_nBillets_request(char * hostname,char* port,struct fils* f){
+    int sock;
+   
+    f=malloc(sizeof(struct fils));
+    if(f==NULL){
+        perror("Erreur allocation mémoire");
+        exit(1);
+    }
+    uint16_t header,id, numfil, nb;
+    uint8_t codereq_client ;
+    uint8_t lendata = 0;
+    char data[SIZE_MESS]="";
+
+    fflush(stdout);
+    printf("IDENTIFIANT , NUM FIL ET NB DE BILLETS : ");
+    scanf("%hd %hd %hd", &id, &numfil, &nb);
+    if (id > MAX_VALUE_11BITS_INTEGER) 
+    {
+        perror("Erreur : Cet identifiant ne peux pas exister.");
+        exit(1);
+    }
+    if (numfil < 0) 
+    {
+        perror("Erreur : Ce numéro de fil ne peux pas exister.");
+        exit(1);
+    }
+    if (nb < 0) 
+    {
+        perror("Erreur : Ce nombre de billets ne peux pas exister.");
+        exit(1);
+    }
+    codereq_client = REQ_GET_BILLET;
+    fflush(stdout);
+    
+char buf[SIZE_MESS*2];
+    header = htons((id << 5) | (codereq_client & 0x1F));
+    numfil = htons(numfil);
+    nb = htons(nb);
+
+    // CONSTRUCTION DE L'ENTETE
+    memcpy(buf, &header, sizeof(header));
+    memcpy(buf+sizeof(header), &numfil, sizeof(numfil));
+    memcpy(buf+sizeof(header)+sizeof(numfil), &nb, sizeof(nb));
+    memcpy(buf+sizeof(header)+sizeof(numfil)+sizeof(nb), &lendata, sizeof(lendata));
+    memcpy(buf+sizeof(header)+sizeof(numfil)+sizeof(nb)+sizeof(lendata), data, lendata);
+
+    size_t size_buf = sizeof(header)+sizeof(numfil)+sizeof(nb)+sizeof(lendata)+lendata;
+
+    sock = connexion_server(hostname, port);
+
+    // ENVOI DE LA REQUETE
+    int ecrit = send(sock, buf,size_buf, 0);
+    if (ecrit < 0){
+        perror("send");
+        close(sock);
+        exit(1);
+    }
+    //reception de la reponse du serveur
+   
+        for(int i=0;i<f->nb_fil;i++){
+            for(int j =0;j< f->list_fil[i].nb_billet;j++){
+                memset(buf, 0, size_buf);
+                int read = recv(sock, buf, size_buf, 0);
+                
+                if (read < 0)
+                {
+                    perror("recv");
+                    close(sock);
+                    exit(1);
+                }    
+                
+                //afichage des billets
+                printf("Billet %d du fil %d : %s\n",j+1,i+1,buf);
+            
+            }
+       }
+          
+     close(sock);
+
+    return 0;
+        
+    
+
+    }
+    
+
+
+
 
 int post_billet_request(char *hostname, char *port) {
     int sock;

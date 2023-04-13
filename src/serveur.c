@@ -72,9 +72,9 @@ void loop_communication_server_client(int sock) {
 
                 break;
             case REQ_GET_BILLET:
-                /*r = get_billet_request();
+                r = get_nBillets_request(sock_client, buf, fils);
 
-                break;*/
+                break;
             case REQ_SUBSCRIBE:
                 /*r = subscribe_request();
 
@@ -130,8 +130,8 @@ void *serve(void *arg) {
             r = post_billet_request(sock, buf, fils);
             break;
         case REQ_GET_BILLET:
-            /*r = get_billet_request();
-            break;*/
+            r= get_nBillets_request(sock,buf,fils);
+            break;
         case REQ_SUBSCRIBE:
             /*r = subscribe_request();
             break;*/
