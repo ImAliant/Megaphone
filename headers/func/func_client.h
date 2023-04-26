@@ -21,5 +21,7 @@ int connexion_server(char *, char *) ;
 int inscription_request(char *, char *);
 // Requete poster un billet
 int post_billet_request(char *, char *);
+// Requete obtention des billets
+int get_billets_request(char *, char *);
 
 #endif

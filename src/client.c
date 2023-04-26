@@ -13,7 +13,6 @@
 #define SIZE_MESS 200
 #define MAX_USERNAME_LEN 10
 #define SIZE_STR_11BITS_INTEGER 4
-struct fils* f;
 
 void inscription(char *argv[]) {
     char *hostname = argv[1];
@@ -37,7 +36,7 @@ void request(char *buf, char *argv[]) {
         post_billet_request(hostname, port);
         break;
     case REQ_GET_BILLET:
-        get_nBillets_request(hostname,port,f);
+        get_billets_request(hostname, port);
         break;
     case REQ_SUBSCRIBE:
         /*subscribe_request();

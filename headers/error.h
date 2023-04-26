@@ -17,5 +17,7 @@
 #define ERR_MAX_BILLETS_REACHED 7 
 // Numéro de fil inexistant
 #define ERR_NUMFIL 8
+// Type pour affichage billets
+#define ERR_NON_TYPE 9
 
 #endif
