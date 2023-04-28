@@ -327,12 +327,6 @@ int get_billets_request(char *hostname, char *port) {
 
         recv_send_message(sock, billet, sizebillet, RECV);
 
-        printf("Contenu du buffer : ");
-        for (size_t i = 0; i < sizebillet; i++) {
-            printf("%02X ", billet[i]);
-        }
-        printf("\n");
-
         // DECODAGE DU BILLET
         ptr = billet;
         memcpy(&numfil, ptr, sizeof(uint16_t));
@@ -351,7 +345,7 @@ int get_billets_request(char *hostname, char *port) {
         numfil = ntohs(numfil);
 
         // AFFICHAGE DU BILLET
-        printf("BILLET %d : NUMFIL %u, ORIGINE %s, PSEUDO %s, DATA %s\n", i+1, numfil, pseudo_fil, pseudo_billet, data);
+        printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATA %s\n", i+1, numfil, pseudo_fil, pseudo_billet, data);
     }
 
     close(sock);

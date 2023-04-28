@@ -258,12 +258,18 @@ int send_billet(int sock, struct fils *fils, uint16_t numfil, int pos_billet) {
     }
 
     memcpy(pseudo_fil, fils->list_fil[numfil].pseudo, MAX_USERNAME_LEN+1);
-    memcpy(pseudo_billet, fils->list_fil[numfil].billets->pseudo, MAX_USERNAME_LEN+1);
-    memcpy(data, fils->list_fil[numfil].billets->contenu, SIZE_MESS+1);
-    lendata = fils->list_fil[numfil].billets->len;
+    memcpy(pseudo_billet, fils->list_fil[numfil].billets[pos_billet].pseudo, MAX_USERNAME_LEN+1);
+    memcpy(data, fils->list_fil[numfil].billets[pos_billet].contenu, SIZE_MESS+1);
+    lendata = fils->list_fil[numfil].billets[pos_billet].len;
 
-    printf("BILLET %d DU FIL %d : NUMFIL %d, PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n", pos_billet+1, numfil+1, numfil, pseudo_fil, pseudo_billet, lendata, data);
+    numfil += 1;
+    pos_billet += 1;
 
+    printf("BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n", pos_billet, numfil, pseudo_fil, pseudo_billet, lendata, data);
+    printf("ENVOI DU BILLET %d DU FIL %d\n", pos_billet, numfil);
+
+    numfil = htons(numfil);
+    
     char *ptr = billet;
     memcpy(ptr, &numfil, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
@@ -275,14 +281,6 @@ int send_billet(int sock, struct fils *fils, uint16_t numfil, int pos_billet) {
     ptr += sizeof(uint8_t);
     memcpy(ptr, data, strlen(data) + 1);
 
-    printf("Contenu du buffer : ");
-    for (size_t i = 0; i < sizebillet; i++) {
-        printf("%02X ", billet[i]);
-    }
-    printf("\n");
-
-    printf("ENVOI DU BILLET %d DU FIL %d\n", pos_billet+1, numfil+1);
-    
     recv_send_message(sock, billet, sizebillet, SEND);
 
     return 0;
