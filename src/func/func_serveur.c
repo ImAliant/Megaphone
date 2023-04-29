@@ -286,12 +286,24 @@ int send_billet(int sock, struct fils *fils, uint16_t numfil, int pos_billet) {
     return 0;
 }
 
-int send_billets(int sock, struct fils *fils, uint16_t numfil, uint16_t nb, int type) {
+int send_billets(int sock, struct fils *fils, uint16_t numfil, int n, int type) {
     if (type == TYPE_BILLETS_FIL) {
-        // TODO
+        int nombre_billets = fils->list_fil[numfil-1].nb_billet;
+        for (int i = 0; i < nombre_billets; i++) {
+            send_billet(sock, fils, numfil-1, i);
+        }
     }
     else if (type == TYPE_BILLETS_OF_ALL_FIL) {
-        // TODO
+        int nombre_fils = fils->nb_fil;
+        for (int i = 0; i < nombre_fils; i++) {
+            int nombre_billets_temp = fils->list_fil[i].nb_billet;
+            int nombre_billets = (nombre_billets_temp > n) ? n : nombre_billets_temp;
+            
+            for( int j = nombre_billets ; j > nombre_billets - n ; j--) {
+                send_billet(sock, fils, i, j);
+            }
+            
+        }
     }
     else if (type == TYPE_ALL_BILLETS) {
         int nombre_fils = fils->nb_fil;
@@ -303,7 +315,11 @@ int send_billets(int sock, struct fils *fils, uint16_t numfil, uint16_t nb, int 
         }
     }
     else if (type == TYPE_NORMAL) {
-        // TODO
+        int nombre_billets = fils->list_fil[numfil-1].nb_billet;
+        int nombre_billets_envoyes = (nombre_billets > n) ? n : nombre_billets;
+        for (int i = 0; i < nombre_billets_envoyes; i++) {
+            send_billet(sock, fils, numfil-1, i);
+        }
     }
 
     return 0;
