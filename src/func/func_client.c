@@ -257,7 +257,7 @@ int get_billets_request(char *hostname, char *port) {
         exit(1);
     }
 
-    if (f < 0 || nb < n) {
+    if (f < 0 || n < 0) {
         perror("Erreur : Les valeurs doivent être supérieures ou égales à zéro.\n");
         exit(1);
     }

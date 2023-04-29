@@ -5,17 +5,24 @@
 
 #include "../headers/billet.h"
 
+struct billet create_billet(uint16_t id, uint8_t lendata, char *data, char *username) {
+    struct billet new_billet;
+    new_billet.idClient = id;
+    new_billet.len = lendata;
+    strcpy(new_billet.pseudo, username);
+    memcpy(new_billet.contenu, data, lendata);
+    new_billet.contenu[lendata] = '\0';
+
+    return new_billet;
+}
+
 int add_billet(struct fils *fils, uint16_t numfil, uint16_t id, uint8_t lendata, char *data, char *username) {
     int last_billet = fils->list_fil[numfil-1].nb_billet;
     if (last_billet >= 100) {
         return -1;
     }
     
-    struct billet new_billet;
-    new_billet.idClient = id;
-    new_billet.len = lendata;
-    strcpy(new_billet.pseudo, username);
-    memcpy(new_billet.contenu, data, lendata);
+    struct billet new_billet = create_billet(id, lendata, data, username);
 
     memcpy(&fils->list_fil[numfil-1].billets[last_billet], &new_billet, sizeof(struct billet));
     fils->list_fil[numfil-1].nb_billet++;
@@ -28,13 +35,9 @@ int create_fil(struct fils *fils, uint16_t id, uint8_t lendata, char *data, char
         return -1;
     }
 
-    struct fil new_fil;
-    struct billet new_billet;
-    new_billet.idClient = id;
-    strcpy(new_billet.pseudo, username);
-    new_billet.len = lendata;
-    memcpy(new_billet.contenu, data, lendata);
+    struct billet new_billet = create_billet(id, lendata, data, username);
 
+    struct fil new_fil;
     memcpy(&new_fil.billets[0], &new_billet, sizeof(struct billet));
     new_fil.nb_billet = 1;
     strcpy(new_fil.pseudo, username);

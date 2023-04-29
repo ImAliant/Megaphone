@@ -19,7 +19,7 @@ int recv_send_message(int sock, char *buf, size_t size, int type) {
             exit(1);
         }
         if(r == 0){
-            fprintf(stderr, "send du client nul\n");
+            fprintf(stderr, "recv nul\n");
             close(sock);
             exit(1);
         }

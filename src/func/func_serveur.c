@@ -16,7 +16,7 @@
 #include "../../headers/message.h"
 
 #define SIZE_MESS 200
-#define MAX_USERS 100
+#define MAX_USERS 2047
 #define MAX_USERNAME_LEN 10
 #define ID_BITS 11
 
@@ -309,30 +309,8 @@ int send_billets(int sock, struct fils *fils, uint16_t numfil, uint16_t nb, int 
     return 0;
 }
 
-int get_billets_request(int sock_client, char *buf, struct fils *fils) {
-    uint16_t header, codereq, id, numfil, nb;
-
-    char *ptr = buf;
-    memcpy(&header, ptr, sizeof(uint16_t));
-    ptr += sizeof(uint16_t);
-    memcpy(&numfil, ptr, sizeof(uint16_t));
-    ptr += sizeof(uint16_t);
-    memcpy(&nb, ptr, sizeof(uint16_t));
-
-    codereq = ntohs(header) & 0x1F;
-    id = ntohs(header) >> 5;
-    numfil = ntohs(numfil);
-    nb = ntohs(nb);
-
-    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n", codereq, id, numfil, nb);
-
-    // TEST SI LE NUMERO DE FIL EST VALIDE
-    if (numfil > fils->nb_fil) {
-        error_request(sock_client, codereq, id, ERR_NUMFIL);
-        return 1;
-    }
-
-    int type = 0;
+int find_case_type(uint16_t numfil, uint16_t nb, int sock_client, uint16_t codereq, uint16_t id) {
+    int type;
     if (numfil == 0 && nb == 0) {
         type = TYPE_ALL_BILLETS;
     }
@@ -347,12 +325,15 @@ int get_billets_request(int sock_client, char *buf, struct fils *fils) {
     }
     else {
         error_request(sock_client, codereq, id, ERR_NON_TYPE);
-        return 1;
+        return -1;
     }
 
-    int nb_billets = get_nb_billets(fils, numfil, nb, type);
+    return type;
+}
 
-    // ENVOIE LE NOMBRE DE BILLETS QUE VA RECEVOIR LE CLIENT
+int send_num_billets_to_client(int sock_client, uint16_t numfil, int nb_billets, uint16_t id) {
+    uint16_t codereq, header, nb;
+
     codereq = REQ_GET_BILLET;
     header = htons((id << 5) | (codereq & 0x1F));
     numfil = htons(numfil);
@@ -368,8 +349,47 @@ int get_billets_request(int sock_client, char *buf, struct fils *fils) {
 
     recv_send_message(sock_client, buffer, sizebuf, SEND);
 
+    return 0;
+}
+
+int get_billets_request(int sock_client, char *buf, struct fils *fils) {
+    uint16_t header, codereq, id, numfil, nb;
+    int n;
+
+    char *ptr = buf;
+    memcpy(&header, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&numfil, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&nb, ptr, sizeof(uint16_t));
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    n = nb;
+
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n", codereq, id, numfil, nb);
+
+    // TEST SI LE NUMERO DE FIL EST VALIDE
+    if (numfil > fils->nb_fil) {
+        error_request(sock_client, codereq, id, ERR_NUMFIL);
+        return 1;
+    }
+
+    int type = find_case_type(numfil, nb, sock_client, codereq, id);
+    if (type == -1) {
+        return 1;
+    }
+
+    int nb_billets = get_nb_billets(fils, numfil, nb, type);
+
+    // ENVOIE LE NOMBRE DE BILLETS QUE VA RECEVOIR LE CLIENT
+    send_num_billets_to_client(sock_client, numfil, nb_billets, id);
+
     // ON ENVOIE LES BILLETS AU CLIENT
-    send_billets(sock_client, fils, numfil, nb, type);
+    send_billets(sock_client, fils, numfil, n, type);
 
     return 0;
 }
