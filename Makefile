@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -lpthread
+CFLAGS = -Wall -pthread
 
 SRC = src/socket.c src/message.c
 CLIENT_SRC = src/client.c src/func/func_client.c $(SRC)
