@@ -1,5 +1,5 @@
-#ifndef REQUEST_DEFINITION_H_
-#define REQUEST_DEFINITION_H_
+#ifndef REQUEST_H_
+#define REQUEST_H_
 
 #define REQ_INSCRIPTION 1
 #define REQ_POST_BILLET 2

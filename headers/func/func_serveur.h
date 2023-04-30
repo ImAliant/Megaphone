@@ -3,16 +3,16 @@
 
 #include "../users.h"
 
-// Genere l'identifiant de l'utilsateur
-int generate_user_id();
-
-// Reception de l'entete du client
-uint16_t recv_header_client(int, char *, uint16_t);
-
 // Requete d'inscription
 int inscription_request(int, char *, utilisateur[], int);
 
+// Requete poster un billet
+int post_billet_request(int, char *, struct fils*, char *);
+
+// Requete obtention des billets
+int get_billets_request(int, char *, struct fils*);
+
 // Requete d'erreur
-void error_request(int, uint8_t, uint16_t);
+void error_request(int, uint8_t, uint16_t, int);
 
 #endif
