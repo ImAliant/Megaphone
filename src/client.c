@@ -7,11 +7,51 @@
 #include <ctype.h>
 
 #include "../headers/socket.h"
-#include "../headers/request_definition.h"
+#include "../headers/request.h"
 #include "../headers/func/func_client.h"
 
-#define SIZE_MESS 100
+#define SIZE_MESS 200
 #define MAX_USERNAME_LEN 10
+#define SIZE_STR_11BITS_INTEGER 4
+
+void inscription(char *argv[]) {
+    char *hostname = argv[1];
+    char *port = argv[2];
+    inscription_request(hostname, port);
+}
+
+void request(char *buf, char *argv[]) {
+    printf("CHOIX REQUETE : \n <2> POST BILLET \n <3> DEMANDER N BILLETS \n <4> ABONNEMENTS FIL \n <5> AJOUTER UN FICHIER \n <6> TELECHARGER UN FICHIER \n");
+    memset(buf, 0, SIZE_MESS);
+    fgets(buf, SIZE_MESS, stdin);
+
+    char *hostname = argv[1];
+    char *port = argv[2];
+    
+    uint8_t codereq_client = atoi(buf);
+
+    switch (codereq_client)
+    {
+    case REQ_POST_BILLET:
+        post_billet_request(hostname, port);
+        break;
+    case REQ_GET_BILLET:
+        get_billets_request(hostname, port);
+        break;
+    case REQ_SUBSCRIBE:
+        /*subscribe_request();
+        break;*/
+    case REQ_ADD_FILE:
+        /*add_file_request();
+        break;*/
+    case REQ_DW_FILE:
+        /*download_file_request();
+        break;*/
+    default:
+        perror("ERREUR : Requete inconnue");
+        exit(EXIT_FAILURE);
+    }
+}
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
@@ -31,25 +71,9 @@ int main(int argc, char *argv[]) {
     }
     
     if (strcmp(buf, "o") == 0) {
-        printf("CHOIX REQUETE : \n <2> POST BILLET \n <3> DEMANDER N BILLETS \n <4> ABONNEMENTS FIL \n <5> AJOUTER UN FICHIER \n <6> TELECHARGER UN FICHIER \n");
-        memset(buf, 0, SIZE_MESS);
-        fgets(buf, SIZE_MESS, stdin);
-        
-        uint8_t codereq_client = atoi(buf);
-
-        switch (codereq_client)
-        {
-        case REQ_POST_BILLET:
-        case REQ_GET_BILLET:
-        case REQ_SUBSCRIBE:
-        case REQ_ADD_FILE:
-        case REQ_DW_FILE:
-            break;
-        }
+        request(buf, argv);
     }
     else {
-        char *hostname = argv[1];
-        char *port = argv[2];
-        inscription_request(hostname, port);
+        inscription(argv);
     }
 }
