@@ -75,14 +75,14 @@ void *serve(void *arg) {
                 }
             }
 
-            r = post_billet_request(sock, buf, fils, username);
+            post_billet_request(sock, buf, fils, username);
             break;
         case REQ_GET_BILLET:
-            r = get_billets_request(sock, buf, fils);
+            get_billets_request(sock, buf, fils);
             break;
         case REQ_SUBSCRIBE:
-            /*r = subscribe_request();
-            break;*/
+            subscribe_request(sock, buf, fils);
+            break;
         case REQ_ADD_FILE:
             /*r = add_file_request();
             break;*/

@@ -352,3 +352,69 @@ int get_billets_request(char *hostname, char *port) {
 
     return 0;
 }
+
+int subscribe_request(char *hostname, char *port) {
+    int sock;
+    uint8_t codereq, lendata;
+    uint16_t header, id, numfil, nb;
+    char data[SIZE_MESS];
+    memset(data, 0, SIZE_MESS);
+    
+    size_t sizebuf = sizeof(codereq)+sizeof(id)+sizeof(numfil)+sizeof(nb)+sizeof(lendata)+SIZE_MESS;
+    char buf[sizebuf];
+    memset(buf, 0, sizebuf);
+
+    // 1 Connexion
+    fflush(stdout);
+    printf("IDENTIFIANT, NUMERO DE FIL : ");
+
+    int iduser, f;
+    int r = scanf("%d %d", &iduser, &f);
+    if (r != 2) {
+        perror("Erreur : Veuillez entrez 2 valeurs.\n");
+        exit(1);
+    }
+
+    if (iduser > MAX_VALUE_11BITS_INTEGER) {
+        perror("Erreur : Cette identifiant ne peux pas exister.\n");
+        exit(1);
+    }
+
+    if (f < 1) {
+        perror("Erreur : Le numéro de fil doit être supérieur ou égale à 1.\n");
+        exit(1);
+    }
+
+    // 2 Envoi des infos
+    
+    // Construction entete
+    codereq = REQ_SUBSCRIBE;
+    id = iduser;
+    numfil = f;
+    nb = 0;
+    lendata = 0;
+    memcpy(data, "", 0);
+
+    header = htons((id << 5) | (codereq & 0x1F));
+    numfil = htons(numfil);
+    nb = htons(nb);
+
+    // Construction buffer
+    char *ptr = buf;
+    memcpy(ptr, &header, sizeof(header));
+    ptr += sizeof(header);
+    memcpy(ptr, &numfil, sizeof(numfil));
+    ptr += sizeof(numfil);
+    memcpy(ptr, &nb, sizeof(nb));
+    ptr += sizeof(nb);
+    memcpy(ptr, &lendata, sizeof(lendata));
+    ptr += sizeof(lendata);
+    memcpy(ptr, &data, sizeof(data));
+
+    sock = connexion_server(hostname, port);
+
+    // ENVOI DE LA REQUETE
+    recv_send_message(sock, buf, sizebuf, SEND);
+
+    return 0;
+}

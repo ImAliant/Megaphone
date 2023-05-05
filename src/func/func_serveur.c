@@ -423,3 +423,32 @@ int get_billets_request(int sock_client, char *buf, struct fils *fils) {
 
     return 0;
 }
+
+int subscribe_request(int sock_client, char *buf, struct fils *fils) {
+    uint8_t codereq, lendata;
+    uint16_t header, id, numfil, nb;
+    char data[SIZE_MESS];
+    memset(data, 0, SIZE_MESS);
+
+    char *ptr = buf;
+    memcpy(&header, ptr, sizeof(header));
+    ptr += sizeof(header);
+    memcpy(&numfil, ptr, sizeof(numfil));
+    ptr += sizeof(numfil);
+    memcpy(&nb, ptr, sizeof(nb));
+    ptr += sizeof(nb);
+    memcpy(&lendata, ptr, sizeof(lendata));
+    ptr += sizeof(lendata);
+    memcpy(&data, ptr, sizeof(data));
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s\n", codereq, id, numfil, nb, lendata, data);
+
+    
+
+    return 0;
+}

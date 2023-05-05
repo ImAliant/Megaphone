@@ -15,4 +15,7 @@ int get_billets_request(int, char *, struct fils*);
 // Requete d'erreur
 void error_request(int, uint8_t, uint16_t, int);
 
+// Requete abonnement fil
+int subscribe_request(int, char *, struct fils*);
+
 #endif
