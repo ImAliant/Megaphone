@@ -25,7 +25,7 @@ int nb_utilisateurs = 0;
 
 utilisateur liste[MAX_USERS];
 
-int is_user_registered(uint16_t id) {
+static int is_user_registered(uint16_t id) {
     for (int i = 0; i < nb_utilisateurs; i++) {
         if (liste[i].id == id) {
             return 1;
@@ -34,7 +34,7 @@ int is_user_registered(uint16_t id) {
     return 0;
 }
 
-void *serve(void *arg) {
+static void *serve(void *arg) {
     int r;
     uint16_t header, id;
     codereq_t codereq;
@@ -96,7 +96,7 @@ void *serve(void *arg) {
     return NULL;
 }
 
-void loop(int sock) {
+static void loop(int sock) {
     while (1) {
         // TODO: addrclient non initialisé
         struct sockaddr_in6 addrclient = {0};

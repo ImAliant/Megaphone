@@ -5,8 +5,8 @@
 
 #include "../headers/billet.h"
 
-struct billet create_billet(uint16_t id, uint8_t lendata, char *data,
-                            char *username) {
+static struct billet create_billet(uint16_t id, uint8_t lendata, char *data,
+                                   char *username) {
     struct billet new_billet;
     new_billet.idClient = id;
     new_billet.len = lendata;

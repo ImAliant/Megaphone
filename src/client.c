@@ -14,13 +14,13 @@
 #define MAX_USERNAME_LEN 10
 #define SIZE_STR_11BITS_INTEGER 4
 
-void inscription(char *argv[]) {
+static void inscription(char *argv[]) {
     char *hostname = argv[1];
     char *port = argv[2];
     inscription_request(hostname, port);
 }
 
-void request(char *buf, char *argv[]) {
+static void request(char *buf, char *argv[]) {
     printf("CHOIX REQUETE :\n"
            "<2> POST BILLET\n"
            "<3> DEMANDER N BILLETS\n"

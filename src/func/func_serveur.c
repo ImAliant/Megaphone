@@ -20,7 +20,7 @@
 #define MAX_USERNAME_LEN 10
 #define ID_BITS 11
 
-uint16_t generate_user_id(const char *username) {
+static uint16_t generate_user_id(const char *username) {
     // HASH
     uint16_t id = 0;
     unsigned long hash = 5381;
@@ -37,8 +37,8 @@ uint16_t generate_user_id(const char *username) {
     return id;
 }
 
-void create_new_user(const char *username, uint16_t user_id,
-                     utilisateur liste[], int nb_utilisateurs) {
+static void create_new_user(const char *username, uint16_t user_id,
+                            utilisateur liste[], int nb_utilisateurs) {
     utilisateur user;
     user.pseudo = malloc(sizeof(char *) * MAX_USERS);
     strcpy(user.pseudo, username);
@@ -48,8 +48,8 @@ void create_new_user(const char *username, uint16_t user_id,
     nb_utilisateurs++;
 }
 
-int is_pseudo_used(const char *username, const utilisateur liste[],
-                   int nb_utilisateurs) {
+static int is_pseudo_used(const char *username, const utilisateur liste[],
+                          int nb_utilisateurs) {
     for (int i = 0; i < nb_utilisateurs; i++) {
         if (strcmp(liste[i].pseudo, username) == 0) {
             return 1;
@@ -213,8 +213,8 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
     recv_send_message(sock_client, buf, SIZE_MESS, SEND);
 }
 
-int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
-                   billet_type_t type) {
+static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
+                          billet_type_t type) {
     int nb_billets = 0;
     // TOUS LES BILLETS DANS UN FIL
     if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
@@ -241,7 +241,8 @@ int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
     return nb_billets;
 }
 
-int send_billet(int sock, struct fils *fils, uint16_t numfil, int pos_billet) {
+static int send_billet(int sock, struct fils *fils, uint16_t numfil,
+                       int pos_billet) {
     uint8_t lendata;
     char pseudo_fil[MAX_USERNAME_LEN + 1];
     char pseudo_billet[MAX_USERNAME_LEN + 1];
@@ -300,7 +301,7 @@ void send_type_all_billets_of_one_fil(int sock, struct fils *fils,
     }
 }
 
-void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
+static void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
     int nombre_fils = fils->nb_fil;
     for (int i = 0; i < nombre_fils; i++) {
         int nombre_billets_temp = fils->list_fil[i].nb_billet;
@@ -312,7 +313,7 @@ void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
     }
 }
 
-void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
+static void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
     int nombre_fils = fils->nb_fil;
     for (int i = nombre_fils - 1; i >= 0; i--) {
         int nombre_billets = fils->list_fil[i].nb_billet;
@@ -322,7 +323,8 @@ void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
     }
 }
 
-void send_type_normal(int sock, struct fils *fils, uint16_t numfil, int n) {
+static void send_type_normal(int sock, struct fils *fils, uint16_t numfil,
+                             int n) {
     int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
 
     for (int j = nombre_billets - 1; j >= nombre_billets - n && j >= 0; j--) {
@@ -330,8 +332,8 @@ void send_type_normal(int sock, struct fils *fils, uint16_t numfil, int n) {
     }
 }
 
-int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
-                 billet_type_t type) {
+static int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
+                        billet_type_t type) {
     if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
         send_type_all_billets_of_one_fil(sock, fils, numfil);
     } else if (type == TYPE_NBILLETS_OF_ALL_FIL) {
@@ -345,8 +347,9 @@ int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
     return 0;
 }
 
-billet_type_t find_case_type(uint16_t numfil, uint16_t nb, int sock_client,
-                             codereq_t codereq, uint16_t id) {
+static billet_type_t find_case_type(uint16_t numfil, uint16_t nb,
+                                    int sock_client, codereq_t codereq,
+                                    uint16_t id) {
     billet_type_t type;
     if (numfil == 0 && nb == 0) {
         type = TYPE_ALL_BILLETS_OF_ALL_FILS;
@@ -364,8 +367,8 @@ billet_type_t find_case_type(uint16_t numfil, uint16_t nb, int sock_client,
     return type;
 }
 
-int send_num_billets_to_client(int sock_client, uint16_t numfil, int nb_billets,
-                               uint16_t id) {
+static int send_num_billets_to_client(int sock_client, uint16_t numfil,
+                                      int nb_billets, uint16_t id) {
     uint16_t codereq, header, nb;
 
     codereq = REQ_GET_BILLET;
