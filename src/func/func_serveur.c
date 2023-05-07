@@ -128,9 +128,9 @@ int post_billet_request(int sock_client, char *buf, struct fils *fils,
 
     // SI LE NUMERO DE FIL EST 0, CREER UN NOUVEAU FIL
     if (numfil == 0) {
-        numfil = create_fil(fils, id, lendata, data, username);
+        int newfil = create_fil(fils, id, lendata, data, username);
 
-        if (numfil == -1) {
+        if (newfil == -1) {
             error_request(sock_client, codereq, id, ERR_MAX_FILS_REACHED);
             return 1;
         }
@@ -213,7 +213,8 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
     recv_send_message(sock_client, buf, SIZE_MESS, SEND);
 }
 
-int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb, billet_type_t type) {
+int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
+                   billet_type_t type) {
     int nb_billets = 0;
     // TOUS LES BILLETS DANS UN FIL
     if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
@@ -299,8 +300,7 @@ void send_type_all_billets_of_one_fil(int sock, struct fils *fils,
     }
 }
 
-void send_type_nbillets_of_all_fil(int sock, struct fils *fils, uint16_t numfil,
-                                   int n) {
+void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
     int nombre_fils = fils->nb_fil;
     for (int i = 0; i < nombre_fils; i++) {
         int nombre_billets_temp = fils->list_fil[i].nb_billet;
@@ -312,8 +312,7 @@ void send_type_nbillets_of_all_fil(int sock, struct fils *fils, uint16_t numfil,
     }
 }
 
-void send_type_all_billets_of_all_fil(int sock, struct fils *fils,
-                                      uint16_t numfil) {
+void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
     int nombre_fils = fils->nb_fil;
     for (int i = nombre_fils - 1; i >= 0; i--) {
         int nombre_billets = fils->list_fil[i].nb_billet;
@@ -336,9 +335,9 @@ int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
     if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
         send_type_all_billets_of_one_fil(sock, fils, numfil);
     } else if (type == TYPE_NBILLETS_OF_ALL_FIL) {
-        send_type_nbillets_of_all_fil(sock, fils, numfil, n);
+        send_type_nbillets_of_all_fil(sock, fils, numfil);
     } else if (type == TYPE_ALL_BILLETS_OF_ALL_FILS) {
-        send_type_all_billets_of_all_fil(sock, fils, numfil);
+        send_type_all_billets_of_all_fil(sock, fils);
     } else if (type == TYPE_NORMAL) {
         send_type_normal(sock, fils, numfil, n);
     }

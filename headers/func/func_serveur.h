@@ -1,10 +1,10 @@
 #ifndef FUNC_SERVEUR_H
 #define FUNC_SERVEUR_H
 
-#include "users.h"
 #include "billet.h"
-#include "request.h"
 #include "error.h"
+#include "request.h"
+#include "users.h"
 
 typedef enum {
     TYPE_ERROR,

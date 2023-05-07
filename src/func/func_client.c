@@ -84,7 +84,11 @@ void completion_pseudo(char *username) {
 void demande_pseudo(char *username) {
     printf("Saisir votre pseudo : ");
     memset(username, 0, MAX_USERNAME_LEN + 1);
-    fgets(username, MAX_USERNAME_LEN, stdin);
+    char *r = fgets(username, MAX_USERNAME_LEN, stdin);
+    if (r == NULL) {
+        fprintf(stderr, "Erreur: EOF\n");
+        exit(1);
+    }
     completion_pseudo(username);
     printf("PSEUDO : %s \n", username);
 }
@@ -112,6 +116,7 @@ int connexion_server(char *hostname, char *port) {
         break;
     case -1:
         fprintf(stderr, "Erreur: hote non trouve.\n");
+        exit(1);
     case -2:
         fprintf(stderr, "Erreur: echec de creation de la socket.\n");
         exit(1);
@@ -169,15 +174,15 @@ int post_billet_request(char *hostname, char *port) {
 
     fflush(stdout);
     printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
-    scanf("%hd %hd", &id, &numfil);
-
-    if (id > MAX_VALUE_11BITS_INTEGER) {
-        perror("Erreur : Cette identifiant ne peux pas exister.");
-        exit(1);
+    int r = scanf("%hu %hu", &id, &numfil);
+    if (r == EOF) {
+        perror("Erreur: ");
+    } else if (r != 2) {
+        fprintf(stderr, "Erreur : EOF");
     }
 
-    if (numfil < 0) {
-        perror("Erreur : Ce numéro de fil ne peux pas exister.");
+    if (id > MAX_VALUE_11BITS_INTEGER) {
+        perror("Erreur : Cet identifiant ne peux pas exister.");
         exit(1);
     }
 
@@ -187,7 +192,11 @@ int post_billet_request(char *hostname, char *port) {
     fflush(stdout);
     printf("ENTREZ VOTRE MESSAGE :\n");
     getchar();
-    fgets(data, SIZE_MESS, stdin);
+    char *r2 = fgets(data, SIZE_MESS, stdin);
+    if (r2 == NULL) {
+        fprintf(stderr, "Erreur : EOF\n");
+        exit(1);
+    }
 
     lendata = strlen(data) - 1;
 

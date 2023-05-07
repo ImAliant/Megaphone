@@ -82,14 +82,10 @@ void *serve(void *arg) {
         r = get_billets_request(sock, buf, fils);
         break;
     case REQ_SUBSCRIBE:
-    /*r = subscribe_request();
-      break;*/
     case REQ_ADD_FILE:
-    /*r = add_file_request();
-      break;*/
     case REQ_DW_FILE:
-        /*r = download_file_request();*/
-        break;
+        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
+        exit(1);
     default:
         error_request(sock, codereq, id, ERR_CODEREQ_UNKNOWN);
         break;
@@ -102,7 +98,8 @@ void *serve(void *arg) {
 
 void loop(int sock) {
     while (1) {
-        struct sockaddr_in6 addrclient;
+        // TODO: addrclient non initialisé
+        struct sockaddr_in6 addrclient = {0};
         socklen_t size = sizeof(addrclient);
 
         //*** on crée la varaiable sur le tas ***
@@ -112,21 +109,22 @@ void loop(int sock) {
         // communication avec le client ***
         *sock_client = accept_connexion(sock, addrclient, size);
 
-        if (sock_client >= 0) {
-            pthread_t thread;
-            //*** le serveur cree un thread et passe un pointeur sur socket client à
-            // la fonction serve ***
-            if (pthread_create(&thread, NULL, serve, sock_client) == -1) {
-                perror("pthread_create");
-                continue;
-            }
-            //*** affichage de l'adresse du client ***
-            char nom_dst[INET6_ADDRSTRLEN];
-            printf(
-                   "CONNEXION CLIENT : %s %d\n",
-                   inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, sizeof(nom_dst)),
-                   htons(addrclient.sin6_port));
+        if (*sock_client < 0) {
+            continue;
         }
+
+        pthread_t thread;
+        //*** le serveur cree un thread et passe un pointeur sur socket client à
+        // la fonction serve ***
+        if (pthread_create(&thread, NULL, serve, sock_client) == -1) {
+            perror("pthread_create");
+            continue;
+        }
+        //*** affichage de l'adresse du client ***
+        char nom_dst[INET6_ADDRSTRLEN];
+        printf("CONNEXION CLIENT : %s %d\n",
+               inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, sizeof(nom_dst)),
+               htons(addrclient.sin6_port));
     }
 }
 

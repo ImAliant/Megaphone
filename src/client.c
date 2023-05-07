@@ -28,7 +28,11 @@ void request(char *buf, char *argv[]) {
            "<5> AJOUTER UN FICHIER\n"
            "<6> TELECHARGER UN FICHIER\n");
     memset(buf, 0, SIZE_MESS);
-    fgets(buf, SIZE_MESS, stdin);
+    char *r = fgets(buf, SIZE_MESS, stdin);
+    if (r == NULL) {
+        fprintf(stderr, "Erreur : EOF\n");
+        exit(1);
+    }
 
     char *hostname = argv[1];
     char *port = argv[2];
@@ -45,7 +49,7 @@ void request(char *buf, char *argv[]) {
     case REQ_SUBSCRIBE:
     case REQ_ADD_FILE:
     case REQ_DW_FILE:
-        fprintf(stderr, "%s:%d: TODO", __FILE__, __LINE__);
+        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
         exit(1);
     default:
         perror("ERREUR : Requete inconnue");
@@ -62,7 +66,12 @@ int main(int argc, char *argv[]) {
     printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
     char buf[SIZE_MESS];
     memset(buf, 0, SIZE_MESS);
-    fgets(buf, SIZE_MESS, stdin);
+    char *r = fgets(buf, SIZE_MESS, stdin);
+    if (r == NULL) {
+        fprintf(stderr, "Erreur : EOF\n");
+        exit(1);
+    }
+
     buf[strlen(buf) - 1] = '\0';
 
     if (strcmp(buf, "o") != 0 && strcmp(buf, "n") != 0) {
