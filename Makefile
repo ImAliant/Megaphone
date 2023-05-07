@@ -1,23 +1,26 @@
-CC = gcc
-CFLAGS = -Wall -pthread
+BUILD ?= build
+SRC = src
+HEADERS = headers
 
-SRC = src/socket.c src/message.c
-CLIENT_SRC = src/client.c src/func/func_client.c $(SRC)
-SERVEUR_SRC = src/serveur.c src/billet.c src/func/func_serveur.c $(SRC)
+CC ?= gcc
+CFLAGS = -Wall -Wextra -Wpedantic -I$(HEADERS)
 
-HEADERS = headers/socket.h headers/message.h headers/request.h 
-CLIENT_HEADERS = $(HEADERS) headers/func/func_client.h
-SERVEUR_HEADERS = $(HEADERS) headers/billet.h headers/func/func_serveur.h headers/users.h
+ALL = client serveur
 
-all: client serveur
+.PHONY: all
+all: $(ALL)
 
-client: $(CLIENT_SRC) $(CLIENT_HEADERS)
-	$(CC) $(CFLAGS) $(CLIENT_SRC) -o client
+client: $(BUILD)/socket.o $(BUILD)/func/func_client.o $(SRC)/client.c
+	$(CC) $(CFLAGS) $^ -o $@
 
-serveur: $(SERVEUR_SRC) $(SERVEUR_HEADERS)
-	$(CC) $(CFLAGS) $(SERVEUR_SRC) -o serveur
+serveur: $(BUILD)/socket.o $(BUILD)/func/func_serveur.o $(SRC)/serveur.c
+	$(CC) $(CFLAGS) $^ -o $@
 
-clean:
-	rm -f client serveur
+$(BUILD)/%.o: $(SRC)/%.c $(HEADERS)/%.h
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
+clean:
+	rm -rf $(ALL) $(BUILD)
+

@@ -7,13 +7,13 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "../../headers/socket.h"
-#include "../../headers/users.h"
-#include "../../headers/billet.h"
-#include "../../headers/error.h"
-#include "../../headers/func/func_serveur.h"
-#include "../../headers/request.h"
-#include "../../headers/message.h"
+#include "socket.h"
+#include "users.h"
+#include "billet.h"
+#include "error.h"
+#include "func/func_serveur.h"
+#include "request.h"
+#include "message.h"
 
 #define SIZE_MESS 200
 #define MAX_USERS 2047

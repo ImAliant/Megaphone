@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "../headers/socket.h"
-#include "../headers/request.h"
-#include "../headers/func/func_client.h"
+#include "socket.h"
+#include "request.h"
+#include "func/func_client.h"
 
 #define SIZE_MESS 200
 #define MAX_USERNAME_LEN 10

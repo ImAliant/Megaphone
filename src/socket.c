@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <netdb.h>
 
-#include "../headers/socket.h"
+#include "socket.h"
 
 int creation_socket() {
     int sock = socket(PF_INET6, SOCK_STREAM, 0);

@@ -1,7 +1,7 @@
 #ifndef FUNC_SERVEUR_H
 #define FUNC_SERVEUR_H
 
-#include "../users.h"
+#include "users.h"
 
 // Requete d'inscription
 int inscription_request(int, char *, utilisateur[], int);

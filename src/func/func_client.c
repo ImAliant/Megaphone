@@ -6,12 +6,12 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "../../headers/socket.h"
-#include "../../headers/error.h"
-#include "../../headers/func/func_client.h"
-#include "../../headers/request.h"
-#include "../../headers/billet.h"
-#include "../../headers/message.h"
+#include "socket.h"
+#include "error.h"
+#include "func/func_client.h"
+#include "request.h"
+#include "billet.h"
+#include "message.h"
 
 #define MAX_USERNAME_LEN 10
 #define MAX_VALUE_11BITS_INTEGER 2047
