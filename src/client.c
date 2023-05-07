@@ -33,7 +33,7 @@ void request(char *buf, char *argv[]) {
     char *hostname = argv[1];
     char *port = argv[2];
 
-    uint8_t codereq_client = atoi(buf);
+    codereq_t codereq_client = atoi(buf);
 
     switch (codereq_client) {
     case REQ_POST_BILLET:

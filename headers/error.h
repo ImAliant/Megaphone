@@ -1,23 +1,25 @@
 #ifndef ERROR_H_
 #define ERROR_H_
 
-// CODEREQ inconnu
-#define ERR_CODEREQ_UNKNOWN 1
-// ID non nul avec CODEREQ=1
-#define ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE 2
-// ID inexistant dans la table
-#define ERR_ID_DOES_NOT_EXIST 3
-// PSEUDO déjà utilisé
-#define ERR_PSEUDO_ALREADY_USED 4
-// Impossible d'ajouter un fil car la table est pleine
-#define ERR_MAX_FILS_REACHED 5
-// Impossible d'ajouter un utilisateur car la table est pleine
-#define ERR_MAX_USERS_REACHED 6
-// Impossible d'ajouter un billet car la table est pleine
-#define ERR_MAX_BILLETS_REACHED 7
-// Numéro de fil inexistant
-#define ERR_NUMFIL 8
-// Type pour affichage billets
-#define ERR_NON_TYPE 9
+typedef enum {
+    // CODEREQ inconnu
+    ERR_CODEREQ_UNKNOWN,
+    // ID non nul avec CODEREQ=1
+    ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE,
+    // ID inexistant dans la table
+    ERR_ID_DOES_NOT_EXIST,
+    // PSEUDO déjà utilisé
+    ERR_PSEUDO_ALREADY_USED,
+    // Impossible d'ajouter un fil car la table est pleine
+    ERR_MAX_FILS_REACHED,
+    // Impossible d'ajouter un utilisateur car la table est pleine
+    ERR_MAX_USERS_REACHED,
+    // Impossible d'ajouter un billet car la table est pleine
+    ERR_MAX_BILLETS_REACHED,
+    // Numéro de fil inexistant
+    ERR_NUMFIL,
+    // Type pour affichage billets
+    ERR_NON_TYPE,
+} error_t;
 
 #endif

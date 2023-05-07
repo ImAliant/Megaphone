@@ -37,7 +37,7 @@ int is_user_registered(uint16_t id) {
 void *serve(void *arg) {
     int r;
     uint16_t header, id;
-    uint8_t codereq;
+    codereq_t codereq;
     char username[USERNAME_LEN];
 
     int sock = *(int *)arg;

@@ -3,6 +3,20 @@
 
 #include "users.h"
 #include "billet.h"
+#include "request.h"
+#include "error.h"
+
+typedef enum {
+    TYPE_ERROR,
+    /* nb == 0 */
+    TYPE_ALL_BILLETS_OF_ONE_FIL,
+    /* f == 0 */
+    TYPE_NBILLETS_OF_ALL_FIL,
+    /* nb == f == 0 */
+    TYPE_ALL_BILLETS_OF_ALL_FILS,
+    /* nb != 0 && f != 0 */
+    TYPE_NORMAL,
+} billet_type_t;
 
 // Requete d'inscription
 int inscription_request(int, char *, utilisateur[], int);
@@ -14,6 +28,6 @@ int post_billet_request(int, char *, struct fils *, char *);
 int get_billets_request(int, char *, struct fils *);
 
 // Requete d'erreur
-void error_request(int, uint8_t, uint16_t, int);
+void error_request(int, codereq_t, uint16_t, error_t);
 
 #endif

@@ -10,10 +10,10 @@ ALL = client serveur
 .PHONY: all
 all: $(ALL)
 
-client: $(BUILD)/socket.o $(BUILD)/func/func_client.o $(SRC)/client.c
+client: $(BUILD)/socket.o $(BUILD)/message.o $(BUILD)/func/func_client.o $(SRC)/client.c
 	$(CC) $(CFLAGS) $^ -o $@
 
-serveur: $(BUILD)/socket.o $(BUILD)/func/func_serveur.o $(SRC)/serveur.c
+serveur: $(BUILD)/socket.o $(BUILD)/message.o $(BUILD)/billet.o $(BUILD)/func/func_serveur.o $(SRC)/serveur.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BUILD)/%.o: $(SRC)/%.c $(HEADERS)/%.h
@@ -23,4 +23,3 @@ $(BUILD)/%.o: $(SRC)/%.c $(HEADERS)/%.h
 .PHONY: clean
 clean:
 	rm -rf $(ALL) $(BUILD)
-

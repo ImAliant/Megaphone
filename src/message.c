@@ -3,14 +3,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../headers/message.h"
+#include "message.h"
 
-// sert a appeler send()
-#define SEND 1
-// sert a appeler recv()
-#define RECV 0
-
-int recv_send_message(int sock, char *buf, size_t size, int type) {
+int recv_send_message(int sock, char *buf, size_t size, message_t type) {
     if (type == RECV) {
         int r = recv(sock, buf, size, 0);
         if (r < 0) {

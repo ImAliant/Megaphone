@@ -3,9 +3,11 @@
 
 #include <sys/types.h>
 
-#define SEND 1
-#define RECV 0
+typedef enum {
+    RECV,
+    SEND,
+} message_t;
 
-int recv_send_message(int, char *, size_t, int);
+int recv_send_message(int, char *, size_t, message_t);
 
 #endif
