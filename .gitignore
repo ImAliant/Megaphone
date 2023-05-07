@@ -1,1 +1,9 @@
-.vscode
+# Editor files
+.vscode/
+.ccls
+.ccls-cache/
+
+# Build artifacts
+build/
+client
+serveur

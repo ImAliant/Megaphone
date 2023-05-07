@@ -16,7 +16,7 @@ uint16_t create_header(uint8_t);
 // Remplissage entete buffer
 void header_username_buffer(char *, uint16_t, char *);
 // Connexion au serveur
-int connexion_server(char *, char *) ;
+int connexion_server(char *, char *);
 // Requete d'inscription
 int inscription_request(char *, char *);
 // Requete poster un billet
