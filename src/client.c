@@ -14,37 +14,29 @@
 #define MAX_USERNAME_LEN 10
 #define SIZE_STR_11BITS_INTEGER 4
 
-static void inscription(char *argv[]) {
-    char *hostname = argv[1];
-    char *port = argv[2];
-    inscription_request(hostname, port);
-}
-
-static void request(char *buf, char *argv[]) {
+static void request(int sock) {
     printf("CHOIX REQUETE :\n"
            "<2> POST BILLET\n"
            "<3> DEMANDER N BILLETS\n"
            "<4> ABONNEMENTS FIL\n"
            "<5> AJOUTER UN FICHIER\n"
            "<6> TELECHARGER UN FICHIER\n");
-    memset(buf, 0, SIZE_MESS);
+
+    char buf[SIZE_MESS + 1] = {0};
     char *r = fgets(buf, SIZE_MESS, stdin);
     if (r == NULL) {
         fprintf(stderr, "Erreur : EOF\n");
         exit(1);
     }
 
-    char *hostname = argv[1];
-    char *port = argv[2];
-
     codereq_t codereq_client = atoi(buf);
 
     switch (codereq_client) {
     case REQ_POST_BILLET:
-        post_billet_request(hostname, port);
+        post_billet_request(sock);
         break;
     case REQ_GET_BILLET:
-        get_billets_request(hostname, port);
+        get_billets_request(sock);
         break;
     case REQ_SUBSCRIBE:
     case REQ_ADD_FILE:
@@ -63,6 +55,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    char *hostname = argv[1];
+    char *port = argv[2];
+    int sock = connexion_server(hostname, port);
+
     printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
     char buf[SIZE_MESS];
     memset(buf, 0, SIZE_MESS);
@@ -80,8 +76,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (strcmp(buf, "o") == 0) {
-        request(buf, argv);
+        request(sock);
     } else {
-        inscription(argv);
+        inscription_request(sock);
     }
 }

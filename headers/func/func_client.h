@@ -18,10 +18,10 @@ void header_username_buffer(char *, uint16_t, char *);
 // Connexion au serveur
 int connexion_server(char *, char *);
 // Requete d'inscription
-int inscription_request(char *, char *);
+int inscription_request(int);
 // Requete poster un billet
-int post_billet_request(char *, char *);
+int post_billet_request(int);
 // Requete obtention des billets
-int get_billets_request(char *, char *);
+int get_billets_request(int);
 
 #endif
