@@ -54,7 +54,7 @@ void bind_port(int sock, struct sockaddr_in6 *address_sock) {
     int r;
     r = bind(sock, (struct sockaddr *)address_sock, sizeof(*address_sock));
     if (r < 0) {
-        perror("erreur bind");
+        perror("bind");
         exit(2);
     }
 }
@@ -63,7 +63,7 @@ void listen_port(int sock) {
     int r;
     r = listen(sock, 0);
     if (r < 0) {
-        perror("erreur listen");
+        perror("listen");
         exit(2);
     }
 }

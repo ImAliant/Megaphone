@@ -199,8 +199,8 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
         printf("NUMERO DE FIL INCONNU : <%d>, ID %d\n", codereq_client, id);
         break;
     default:
-        perror("code erreur inconnu");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "code erreur inconnu\n");
+        exit(1);
     }
 
     codereq_client = 0;

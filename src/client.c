@@ -44,8 +44,8 @@ static void request(int sock) {
         fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
         exit(1);
     default:
-        perror("ERREUR : Requete inconnue");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "ERREUR : Requete inconnue");
+        exit(1);
     }
 }
 

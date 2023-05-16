@@ -2,6 +2,7 @@
 .vscode/
 .ccls
 .ccls-cache/
+.projectile
 
 # Build artifacts
 build/

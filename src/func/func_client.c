@@ -55,8 +55,8 @@ int error_request(char *buf) {
         printf("ERREUR : NUMERO DE FIL INEXISTANT \n");
         break;
     default:
-        perror("ERREUR : ERREUR INCONNUE \n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "ERREUR : ERREUR INCONNUE \n");
+        exit(1);
     }
 
     return 1;
@@ -126,27 +126,27 @@ int connexion_server(char *hostname, char *port) {
 }
 
 int inscription_request(int sock) {
-  uint16_t header_client, header_serv, id_serv;
-  uint8_t codereq_serv;
-  char username[MAX_USERNAME_LEN + 1];
-  char buf[SIZE_MESS];
+    uint16_t header_client, header_serv, id_serv;
+    uint8_t codereq_serv;
+    char username[MAX_USERNAME_LEN + 1];
+    char buf[SIZE_MESS];
 
-  codereq_serv = REQ_INSCRIPTION;
+    codereq_serv = REQ_INSCRIPTION;
 
-  header_client = create_header(codereq_serv);
+    header_client = create_header(codereq_serv);
 
-  demande_pseudo(username);
+    demande_pseudo(username);
 
-  header_username_buffer(buf, header_client, username);
+    header_username_buffer(buf, header_client, username);
 
-  // ENVOI ENTETE + PSEUDO
-  recv_send_message(sock, buf, sizeof(header_client) + strlen(username), SEND);
+    // ENVOI ENTETE + PSEUDO
+    recv_send_message(sock, buf, sizeof(header_client) + strlen(username), SEND);
 
-  // RECEPTION ENTETE + ID
-  recv_send_message(sock, buf, SIZE_MESS, RECV);
+    // RECEPTION ENTETE + ID
+    recv_send_message(sock, buf, SIZE_MESS, RECV);
 
-  if (error_request(buf) == 1) {
-    close(sock);
+    if (error_request(buf) == 1) {
+        close(sock);
         exit(5);
     }
 
@@ -163,22 +163,22 @@ int inscription_request(int sock) {
 }
 
 int post_billet_request(int sock) {
-  uint16_t header, id, numfil, nb;
-  uint8_t codereq_client, lendata;
-  char data[SIZE_MESS];
-  memset(data, 0, SIZE_MESS);
+    uint16_t header, id, numfil, nb;
+    uint8_t codereq_client, lendata;
+    char data[SIZE_MESS];
+    memset(data, 0, SIZE_MESS);
 
-  fflush(stdout);
-  printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
-  int r = scanf("%hu %hu", &id, &numfil);
-  if (r == EOF) {
-    perror("Erreur: ");
-  } else if (r != 2) {
-    fprintf(stderr, "Erreur : EOF");
-  }
+    fflush(stdout);
+    printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
+    int r = scanf("%hu %hu", &id, &numfil);
+    if (r == EOF) {
+        perror("Erreur: ");
+    } else if (r != 2) {
+        fprintf(stderr, "Erreur : EOF");
+    }
 
-  if (id > MAX_VALUE_11BITS_INTEGER) {
-    perror("Erreur : Cet identifiant ne peux pas exister.");
+    if (id > MAX_VALUE_11BITS_INTEGER) {
+        fprintf(stderr, "Erreur : Cet identifiant ne peux pas exister.");
         exit(1);
     }
 
@@ -242,29 +242,29 @@ int post_billet_request(int sock) {
 }
 
 int get_billets_request(int sock) {
-  uint16_t header, id, numfil, nb;
-  uint8_t codereq, lendata;
+    uint16_t header, id, numfil, nb;
+    uint8_t codereq, lendata;
 
-  size_t sizebuf = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t);
-  char buf[sizebuf];
-  memset(buf, 0, sizebuf);
+    size_t sizebuf = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t);
+    char buf[sizebuf];
+    memset(buf, 0, sizebuf);
 
-  fflush(stdout);
-  printf("IDENTIFIANT, NUMERO DU FIL ET NB DE BILLETS : ");
-  int iduser, f, n;
-  int r = scanf("%d %d %d", &iduser, &f, &n);
-  if (r != 3) {
-    perror("Erreur : Veuillez entrer 3 valeurs.\n");
+    fflush(stdout);
+    printf("IDENTIFIANT, NUMERO DU FIL ET NB DE BILLETS : ");
+    int iduser, f, n;
+    int r = scanf("%d %d %d", &iduser, &f, &n);
+    if (r != 3) {
+        fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }
 
     if (iduser > MAX_VALUE_11BITS_INTEGER) {
-        perror("Erreur : Cette identifiant ne peux pas exister.\n");
+        fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
         exit(1);
     }
 
     if (f < 0 || n < 0) {
-        perror("Erreur : Les valeurs doivent être supérieures ou égales à zéro.\n");
+        fprintf(stderr, "Erreur : Les valeurs doivent être supérieures ou égales à zéro.\n");
         exit(1);
     }
 
