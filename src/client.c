@@ -8,7 +8,6 @@
 
 #include "func/func_client.h"
 #include "request.h"
-#include "socket.h"
 
 #define SIZE_MESS 200
 #define MAX_USERNAME_LEN 10

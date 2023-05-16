@@ -13,7 +13,6 @@
 #include "func/func_serveur.h"
 #include "message.h"
 #include "request.h"
-#include "socket.h"
 #include "users.h"
 
 #define SIZE_MESS 200
@@ -92,40 +91,69 @@ static void *serve(void *arg) {
     }
 
     close(sock);
+    free(arg);
 
     return NULL;
 }
 
 static void loop(int sock) {
-    while (1) {
-        // TODO: addrclient non initialisé
-        struct sockaddr_in6 addrclient = {0};
-        socklen_t size = sizeof(addrclient);
+    struct sockaddr_in6 addrclient = {0};
+    socklen_t size = sizeof(addrclient);
 
-        //*** on crée la varaiable sur le tas ***
-        int *sock_client = malloc(sizeof(int));
+    int sock_client;
+    while ((sock_client = accept(sock, (struct sockaddr *)&addrclient, &size))) {
+        if (sock_client < 0) continue;
 
-        //*** le serveur accepte une connexion et initialise la socket de
-        // communication avec le client ***
-        *sock_client = accept_connexion(sock, addrclient, size);
-
-        if (*sock_client < 0) {
-            continue;
-        }
+        // on crée la variable sur le tas
+        int *sock_client_stack = malloc(sizeof(int));
+        *sock_client_stack = sock_client;
 
         pthread_t thread;
-        //*** le serveur cree un thread et passe un pointeur sur socket client à
-        // la fonction serve ***
-        if (pthread_create(&thread, NULL, serve, sock_client) == -1) {
+        int r = pthread_create(&thread, NULL, serve, sock_client_stack);
+        if (r < 0) {
             perror("pthread_create");
             continue;
         }
-        //*** affichage de l'adresse du client ***
-        char nom_dst[INET6_ADDRSTRLEN];
-        printf("CONNEXION CLIENT : %s %d\n",
-               inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, sizeof(nom_dst)),
-               htons(addrclient.sin6_port));
+
+        char nom_dst[INET6_ADDRSTRLEN + 1] = {0};
+        const char *rs = inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, INET6_ADDRSTRLEN);
+        if (rs == NULL) {
+            strcpy(nom_dst, "<erreur>");
+        }
+
+        int port = htons(addrclient.sin6_port);
+
+        printf("CONNEXION CLIENT : %s (port %d)\n", nom_dst, port);
     }
+}
+
+static int create_server(int port) {
+    int sock = -1;
+    int r;
+
+    sock = socket(PF_INET6, SOCK_STREAM, 0);
+    if (sock < 0) goto fail;
+
+    struct sockaddr_in6 address_sock = {0};
+    address_sock.sin6_family = AF_INET6;
+    address_sock.sin6_port = htons(port);
+    address_sock.sin6_addr = in6addr_any;
+
+    int yes = 1;
+    r = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    if (r < 0) goto fail;
+
+    r = bind(sock, (struct sockaddr *)&address_sock, sizeof(address_sock));
+    if (r < 0) goto fail;
+
+    r = listen(sock, 0);
+    if (r < 0) goto fail;
+
+    return sock;
+
+ fail:
+    if (sock >= 0) close(sock);
+    return -1;
 }
 
 int main(int argc, char *argv[]) {
@@ -137,22 +165,8 @@ int main(int argc, char *argv[]) {
     fils = malloc(sizeof(struct fils));
     fils->nb_fil = 0;
 
-    int port, sock;
-    struct sockaddr_in6 address_sock;
-    memset(&address_sock, 0, sizeof(address_sock));
-
-    port = atoi(argv[1]);
-    addresse_destinataire(port, &address_sock);
-
-    sock = creation_socket();
-
-    desac_option_only_ipv6(sock);
-
-    parallel_use_port(sock);
-
-    bind_port(sock, &address_sock);
-
-    listen_port(sock);
+    int port = atoi(argv[1]);
+    int sock = create_server(port);
 
     loop(sock);
 

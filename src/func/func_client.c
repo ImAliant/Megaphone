@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +12,6 @@
 #include "func/func_client.h"
 #include "message.h"
 #include "request.h"
-#include "socket.h"
 
 #define MAX_USERNAME_LEN 10
 #define MAX_VALUE_11BITS_INTEGER 2047
@@ -106,12 +106,52 @@ void header_username_buffer(char *buf, uint16_t header_client, char *username) {
     buf[sizeof(header_client) + strlen(username)] = '\0';
 }
 
+static int get_server_addr(char *hostname, char *port, int *sock, struct sockaddr_in6 *addr) {
+    struct addrinfo hints, *r, *p;
+    int ret;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_V4MAPPED;
+
+    ret = getaddrinfo(hostname, port, &hints, &r);
+    if (ret != 0 || r == NULL) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+        return -1;
+    }
+
+    p = r;
+    while (p != NULL) {
+        if ((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0) {
+            if (connect(*sock, p->ai_addr, sizeof(struct sockaddr_in6)) == 0)
+                break;
+
+            close(*sock);
+        }
+
+        p = p->ai_next;
+    }
+
+    if (p == NULL)
+        return -2;
+
+    if (addr != NULL) {
+        // on stocke l'adresse de connexion
+        memcpy(addr, p->ai_addr, sizeof(struct sockaddr_in6));
+    }
+
+    // on libère la mémoire allouée par getaddrinfo
+    freeaddrinfo(r);
+
+    return 0;
+}
+
 int connexion_server(char *hostname, char *port) {
     int sock;
-    struct sockaddr_in6 *server_addr;
-    int adrlen;
+    struct sockaddr_in6 server_addr;
 
-    switch (get_server_addr(hostname, port, &sock, &server_addr, &adrlen)) {
+    switch (get_server_addr(hostname, port, &sock, &server_addr)) {
     case 0:
         break;
     case -1:

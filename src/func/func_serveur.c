@@ -12,7 +12,6 @@
 #include "func/func_serveur.h"
 #include "message.h"
 #include "request.h"
-#include "socket.h"
 #include "users.h"
 
 #define SIZE_MESS 200
