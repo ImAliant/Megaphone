@@ -96,7 +96,7 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[],
     memset(buf, 0, SIZE_MESS);
     memcpy(buf, &header, sizeof(header));
 
-    recv_send_message(sock_client, buf, SIZE_MESS, SEND);
+    send_message(sock_client, buf, SIZE_MESS);
 
     return 0;
 }
@@ -159,7 +159,7 @@ int post_billet_request(int sock_client, char *buf, struct fils *fils,
     memcpy(buf + sizeof(uint16_t), &numfil, sizeof(uint16_t));
     memcpy(buf + sizeof(uint16_t) * 2, &nb, sizeof(uint16_t));
 
-    recv_send_message(sock_client, buf, sizeof(uint16_t) * 3, SEND);
+    send_message(sock_client, buf, sizeof(uint16_t) * 3);
 
     return 0;
 }
@@ -209,7 +209,7 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
     memcpy(buf, &header_serv, sizeof(uint16_t));
     memcpy(buf + sizeof(uint16_t), &err, sizeof(int));
 
-    recv_send_message(sock_client, buf, SIZE_MESS, SEND);
+    send_message(sock_client, buf, SIZE_MESS);
 }
 
 static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
@@ -287,7 +287,7 @@ static int send_billet(int sock, struct fils *fils, uint16_t numfil,
     ptr += sizeof(uint8_t);
     memcpy(ptr, data, strlen(data) + 1);
 
-    recv_send_message(sock, billet, sizebillet, SEND);
+    send_message(sock, billet, sizebillet);
 
     return 0;
 }
@@ -383,7 +383,7 @@ static int send_num_billets_to_client(int sock_client, uint16_t numfil,
     memcpy(buffer + sizeof(uint16_t), &numfil, sizeof(uint16_t));
     memcpy(buffer + sizeof(uint16_t) * 2, &nb, sizeof(uint16_t));
 
-    recv_send_message(sock_client, buffer, sizebuf, SEND);
+    send_message(sock_client, buffer, sizebuf);
 
     return 0;
 }

@@ -180,10 +180,10 @@ int inscription_request(int sock) {
     header_username_buffer(buf, header_client, username);
 
     // ENVOI ENTETE + PSEUDO
-    recv_send_message(sock, buf, sizeof(header_client) + strlen(username), SEND);
+    send_message(sock, buf, sizeof(header_client) + strlen(username));
 
     // RECEPTION ENTETE + ID
-    recv_send_message(sock, buf, SIZE_MESS, RECV);
+    recv_message(sock, buf, SIZE_MESS);
 
     if (error_request(buf) == 1) {
         close(sock);
@@ -254,10 +254,10 @@ int post_billet_request(int sock) {
         sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata) + lendata;
 
     // ENVOI DE LA REQUETE
-    recv_send_message(sock, buf, size_buf, SEND);
+    send_message(sock, buf, size_buf);
 
     // RECEPTION DE LA REPONSE
-    recv_send_message(sock, buf, SIZE_MESS * 2, RECV);
+    recv_message(sock, buf, SIZE_MESS * 2);
 
     if (error_request(buf) == 1) {
         close(sock);
@@ -327,11 +327,11 @@ int get_billets_request(int sock) {
     memcpy(ptr, &nb, sizeof(nb));
 
     // ENVOI DE LA REQUETE
-    recv_send_message(sock, buf, sizebuf, SEND);
+    send_message(sock, buf, sizebuf);
 
     // RECEPTION DE LA REPONSE
     // REPONSE PEUT ÊTRE UNE ERREUR
-    recv_send_message(sock, buf, sizebuf, RECV);
+    recv_message(sock, buf, sizebuf);
 
     if (error_request(buf) == 1) {
         close(sock);
@@ -371,7 +371,7 @@ int get_billets_request(int sock) {
         memset(pseudo_billet, 0, MAX_USERNAME_LEN + 1);
         memset(data, 0, SIZE_MESS + 1);
 
-        recv_send_message(sock, billet, sizebillet, RECV);
+        recv_message(sock, billet, sizebillet);
 
         // DECODAGE DU BILLET
         ptr = billet;

@@ -44,7 +44,7 @@ static void *serve(void *arg) {
     char buf[SIZE_MESS * 2];
     memset(buf, 0, SIZE_MESS * 2);
 
-    recv_send_message(sock, buf, SIZE_MESS * 2, RECV);
+    recv_message(sock, buf, SIZE_MESS * 2);
 
     memcpy(&header, buf, sizeof(uint16_t));
     codereq = ntohs(header) & 0x1F;
