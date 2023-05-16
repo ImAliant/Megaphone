@@ -156,7 +156,7 @@ static int create_server(int port) {
     return -1;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "usage : ./serveur <PORT>\n");
         exit(1);

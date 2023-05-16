@@ -30,8 +30,8 @@ struct fils {
 };
 
 // Creation d'un nouveau fil
-int create_fil(struct fils *, uint16_t, uint8_t, char *, char *);
+int create_fil(struct fils *, uint16_t, uint8_t, const char *, const char *);
 // Ajout d'un billet dans un fil
-int add_billet(struct fils *, uint16_t, uint16_t, uint8_t, char *, char *);
+int add_billet(struct fils *, uint16_t, uint16_t, uint8_t, const char *, const char *);
 
 #endif

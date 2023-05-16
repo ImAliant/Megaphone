@@ -22,7 +22,7 @@ static void request(int sock) {
            "<6> TELECHARGER UN FICHIER\n");
 
     char buf[SIZE_MESS + 1] = {0};
-    char *r = fgets(buf, SIZE_MESS, stdin);
+    const char *r = fgets(buf, SIZE_MESS, stdin);
     if (r == NULL) {
         fprintf(stderr, "Erreur : EOF\n");
         exit(1);
@@ -48,20 +48,20 @@ static void request(int sock) {
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     if (argc < 3) {
         fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
         exit(1);
     }
 
-    char *hostname = argv[1];
-    char *port = argv[2];
+    const char *hostname = argv[1];
+    const char *port = argv[2];
     int sock = connexion_server(hostname, port);
 
     printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
     char buf[SIZE_MESS];
     memset(buf, 0, SIZE_MESS);
-    char *r = fgets(buf, SIZE_MESS, stdin);
+    const char *r = fgets(buf, SIZE_MESS, stdin);
     if (r == NULL) {
         fprintf(stderr, "Erreur : EOF\n");
         exit(1);

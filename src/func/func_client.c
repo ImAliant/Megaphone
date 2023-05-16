@@ -16,7 +16,7 @@
 #define MAX_USERNAME_LEN 10
 #define MAX_VALUE_11BITS_INTEGER 2047
 
-int error_request(char *buf) {
+int error_request(const char *buf) {
     uint16_t header;
     uint8_t codereq;
     int type;
@@ -84,7 +84,7 @@ void completion_pseudo(char *username) {
 void demande_pseudo(char *username) {
     printf("Saisir votre pseudo : ");
     memset(username, 0, MAX_USERNAME_LEN + 1);
-    char *r = fgets(username, MAX_USERNAME_LEN, stdin);
+    const char *r = fgets(username, MAX_USERNAME_LEN, stdin);
     if (r == NULL) {
         fprintf(stderr, "Erreur: EOF\n");
         exit(1);
@@ -100,13 +100,13 @@ uint16_t create_header(uint8_t codereq_client) {
     return header_client;
 }
 
-void header_username_buffer(char *buf, uint16_t header_client, char *username) {
+void header_username_buffer(char *buf, uint16_t header_client, const char *username) {
     memcpy(buf, &header_client, sizeof(header_client));
     memcpy(buf + sizeof(header_client), username, strlen(username));
     buf[sizeof(header_client) + strlen(username)] = '\0';
 }
 
-static int get_server_addr(char *hostname, char *port, int *sock, struct sockaddr_in6 *addr) {
+static int get_server_addr(const char *hostname, const char *port, int *sock, struct sockaddr_in6 *addr) {
     struct addrinfo hints, *r, *p;
     int ret;
 
@@ -147,7 +147,7 @@ static int get_server_addr(char *hostname, char *port, int *sock, struct sockadd
     return 0;
 }
 
-int connexion_server(char *hostname, char *port) {
+int connexion_server(const char *hostname, const char *port) {
     int sock;
     struct sockaddr_in6 server_addr;
 
@@ -228,7 +228,7 @@ int post_billet_request(int sock) {
     fflush(stdout);
     printf("ENTREZ VOTRE MESSAGE :\n");
     getchar();
-    char *r2 = fgets(data, SIZE_MESS, stdin);
+    const char *r2 = fgets(data, SIZE_MESS, stdin);
     if (r2 == NULL) {
         fprintf(stderr, "Erreur : EOF\n");
         exit(1);

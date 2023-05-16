@@ -102,7 +102,7 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[],
 }
 
 int post_billet_request(int sock_client, char *buf, struct fils *fils,
-                        char *username) {
+                        const char *username) {
     // TRADUCTION DU MESSAGE DU CLIENT
     uint16_t header, id, numfil, nb;
     uint8_t codereq, lendata;
@@ -388,11 +388,11 @@ static int send_num_billets_to_client(int sock_client, uint16_t numfil,
     return 0;
 }
 
-int get_billets_request(int sock_client, char *buf, struct fils *fils) {
+int get_billets_request(int sock_client, const char *buf, struct fils *fils) {
     uint16_t header, codereq, id, numfil, nb;
     int n;
 
-    char *ptr = buf;
+    const char *ptr = buf;
     memcpy(&header, ptr, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     memcpy(&numfil, ptr, sizeof(uint16_t));

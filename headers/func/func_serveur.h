@@ -22,10 +22,10 @@ typedef enum {
 int inscription_request(int, char *, utilisateur[], int);
 
 // Requete poster un billet
-int post_billet_request(int, char *, struct fils *, char *);
+int post_billet_request(int, char *, struct fils *, const char *);
 
 // Requete obtention des billets
-int get_billets_request(int, char *, struct fils *);
+int get_billets_request(int, const char *, struct fils *);
 
 // Requete d'erreur
 void error_request(int, codereq_t, uint16_t, error_t);
