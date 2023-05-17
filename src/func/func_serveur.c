@@ -16,10 +16,9 @@
 
 #define SIZE_MESS 200
 #define MAX_USERS 2047
-#define MAX_USERNAME_LEN 10
 #define ID_BITS 11
 
-static uint16_t generate_user_id(const char *username) {
+static uint16_t generate_user_id(username_t username) {
     // HASH
     uint16_t id = 0;
     unsigned long hash = 5381;
@@ -36,18 +35,17 @@ static uint16_t generate_user_id(const char *username) {
     return id;
 }
 
-static void create_new_user(const char *username, uint16_t user_id,
+static void create_new_user(username_t username, uint16_t user_id,
                             utilisateur liste[], int nb_utilisateurs) {
     utilisateur user;
-    user.pseudo = malloc(sizeof(char *) * MAX_USERS);
-    strcpy(user.pseudo, username);
+    memcpy(user.pseudo, username, USERNAME_LEN);
     user.id = user_id;
 
     liste[nb_utilisateurs] = user;
     nb_utilisateurs++;
 }
 
-static int is_pseudo_used(const char *username, const utilisateur liste[],
+static int is_pseudo_used(const username_t username, const utilisateur liste[],
                           int nb_utilisateurs) {
     for (int i = 0; i < nb_utilisateurs; i++) {
         if (strcmp(liste[i].pseudo, username) == 0) {
@@ -57,18 +55,16 @@ static int is_pseudo_used(const char *username, const utilisateur liste[],
     return 0;
 }
 
-int inscription_request(int sock_client, char *buf, utilisateur liste[],
-                        int nb_utilisateurs) {
+int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_utilisateurs) {
     uint16_t header;
     uint16_t id;
     codereq_t codereq;
-    char username[MAX_USERNAME_LEN + 1];
+    username_t username;
 
     memcpy(&header, buf, sizeof(uint16_t));
     codereq = ntohs(header) & 0x1F;
     id = ntohs(header) >> 5;
-    memcpy(username, buf + sizeof(uint16_t), MAX_USERNAME_LEN);
-    username[MAX_USERNAME_LEN] = '\0';
+    memcpy(username, buf + sizeof(uint16_t), USERNAME_LEN);
 
     // TEST SI LE NOMBRE MAX D'UTILISATEURS EST ATTEINT
     if (nb_utilisateurs >= MAX_USERS) {
@@ -83,7 +79,8 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[],
     }
 
     // AFFICHAGE DU MESSAGE DU CLIENT
-    printf("CODEREQ %d, ID %hd, PSEUDONYME %s\n", codereq, id, username);
+    char buf2[USERNAME_LEN + 1];
+    printf("CODEREQ %d, ID %hd, PSEUDONYME %s\n", codereq, id, username_to_string(username, buf2));
 
     id = generate_user_id(username);
 
@@ -243,25 +240,23 @@ static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
 static int send_billet(int sock, struct fils *fils, uint16_t numfil,
                        int pos_billet) {
     uint8_t lendata;
-    char pseudo_fil[MAX_USERNAME_LEN + 1];
-    char pseudo_billet[MAX_USERNAME_LEN + 1];
+    char pseudo_fil[USERNAME_LEN];
+    char pseudo_billet[USERNAME_LEN];
     char data[SIZE_MESS + 1];
 
-    memset(pseudo_fil, 0, MAX_USERNAME_LEN + 1);
-    memset(pseudo_billet, 0, MAX_USERNAME_LEN + 1);
+    memset(pseudo_fil, 0, USERNAME_LEN);
+    memset(pseudo_billet, 0, USERNAME_LEN);
     memset(data, 0, SIZE_MESS + 1);
 
-    size_t sizebillet = sizeof(uint16_t) + (MAX_USERNAME_LEN + 1) * 2 +
-                              sizeof(uint8_t) + (SIZE_MESS + 1);
+    size_t sizebillet = sizeof(uint16_t) + (USERNAME_LEN) * 2 + sizeof(uint8_t) + (SIZE_MESS + 1);
     char *billet = malloc(sizebillet);
     if (billet == NULL) {
         perror("malloc");
         return 1;
     }
 
-    memcpy(pseudo_fil, fils->list_fil[numfil].pseudo, MAX_USERNAME_LEN + 1);
-    memcpy(pseudo_billet, fils->list_fil[numfil].billets[pos_billet].pseudo,
-           MAX_USERNAME_LEN + 1);
+    memcpy(pseudo_fil, fils->list_fil[numfil].pseudo, USERNAME_LEN);
+    memcpy(pseudo_billet, fils->list_fil[numfil].billets[pos_billet].pseudo, USERNAME_LEN);
     memcpy(data, fils->list_fil[numfil].billets[pos_billet].contenu,
            SIZE_MESS + 1);
     lendata = fils->list_fil[numfil].billets[pos_billet].len;

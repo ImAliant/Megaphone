@@ -10,8 +10,6 @@
 #include "request.h"
 
 #define SIZE_MESS 200
-#define MAX_USERNAME_LEN 10
-#define SIZE_STR_11BITS_INTEGER 4
 
 static void request(int sock) {
     printf("CHOIX REQUETE :\n"

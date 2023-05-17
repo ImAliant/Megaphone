@@ -17,7 +17,6 @@
 
 #define SIZE_MESS 200
 #define MAX_USERS 100
-#define USERNAME_LEN 10
 
 struct fils *fils;
 int nb_utilisateurs = 0;

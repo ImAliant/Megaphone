@@ -2,16 +2,17 @@
 #define BILLET_H
 
 #define SIZE_MESS 200
-#define MAX_USERNAME_LEN 10
 #define NB_MAX_BILLETS_PAR_FIL 100
 #define NB_MAX_FILS 100
 
 #include <stdint.h>
 
+#include "users.h"
+
 // Structure des billets
 struct billet {
     uint16_t idClient;
-    char pseudo[MAX_USERNAME_LEN + 1];
+    username_t pseudo;
     char contenu[SIZE_MESS + 1];
     uint8_t len;
 };
@@ -19,7 +20,7 @@ struct billet {
 // Structure des fils
 struct fil {
     struct billet billets[NB_MAX_BILLETS_PAR_FIL];
-    char pseudo[MAX_USERNAME_LEN + 1];
+    username_t pseudo;
     int nb_billet;
 };
 
