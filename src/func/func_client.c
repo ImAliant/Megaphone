@@ -350,16 +350,18 @@ void header_username_buffer(char *buf, uint16_t header_client, username_t userna
         nb = ntohs(nb);
 
         // AFFICHAGE DE LA REPONSE
-        printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n", codereq, id,
-               numfil, nb);
+        printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n",
+               codereq, id, numfil, nb);
 
         // RECEPTION DES BILLETS
-        size_t sizebillet = sizeof(uint16_t) + (USERNAME_LEN) * 2 +
-                                  sizeof(uint8_t) + (SIZE_MESS + 1);
+        size_t sizebillet = sizeof(uint16_t) // numfil
+                            + USERNAME_LEN * 2 // origin + pseudo
+                            + sizeof(uint8_t) // datalen
+                            + (SIZE_MESS + 1); // data
         char billet[sizebillet];
         char data[SIZE_MESS + 1];
-        char pseudo_fil[USERNAME_LEN];
-        char pseudo_billet[USERNAME_LEN];
+        username_t pseudo_fil;
+        username_t pseudo_billet;
 
         memset(billet, 0, sizebillet);
 
@@ -373,22 +375,24 @@ void header_username_buffer(char *buf, uint16_t header_client, username_t userna
 
             // DECODAGE DU BILLET
             ptr = billet;
-            memcpy(&numfil, ptr, sizeof(uint16_t));
-            ptr += sizeof(uint16_t);
-            memcpy(pseudo_fil, ptr, strlen(ptr) + 1);
+            memcpy(&numfil, ptr, sizeof(numfil));
+            ptr += sizeof(numfil);
+            memcpy(pseudo_fil, ptr, USERNAME_LEN);
             ptr += strlen(ptr) + 1;
-            memcpy(pseudo_billet, ptr, strlen(ptr) + 1);
+            memcpy(pseudo_billet, ptr, USERNAME_LEN);
             ptr += strlen(ptr) + 1;
-            memcpy(&lendata, ptr, sizeof(uint8_t));
-            ptr += sizeof(uint8_t);
+            memcpy(&lendata, ptr, sizeof(lendata));
+            ptr += sizeof(lendata);
             memcpy(data, ptr, strlen(ptr) + 1);
             data[lendata] = '\0';
 
             numfil = ntohs(numfil);
 
             // AFFICHAGE DU BILLET
-            printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATA %s\n", i + 1,
-                   numfil, pseudo_fil, pseudo_billet, data);
+            char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
+            char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
+            printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATA %s\n",
+                   i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, data);
         }
 
         close(sock);

@@ -98,8 +98,7 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_
     return 0;
 }
 
-int post_billet_request(int sock_client, char *buf, struct fils *fils,
-                        const char *username) {
+int post_billet_request(int sock_client, char *buf, struct fils *fils, username_t username) {
     // TRADUCTION DU MESSAGE DU CLIENT
     uint16_t header, id, numfil, nb;
     uint8_t codereq, lendata;
@@ -264,9 +263,10 @@ static int send_billet(int sock, struct fils *fils, uint16_t numfil,
     numfil += 1;
     pos_billet += 1;
 
-    printf("BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, "
-           "DATA %s\n",
-           pos_billet, numfil, pseudo_fil, pseudo_billet, lendata, data);
+    char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
+    char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
+    printf("BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n",
+           pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
     printf("ENVOI DU BILLET %d DU FIL %d\n", pos_billet, numfil);
 
     numfil = htons(numfil);

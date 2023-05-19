@@ -36,7 +36,7 @@ static void *serve(void *arg) {
     int r;
     uint16_t header, id;
     codereq_t codereq;
-    char username[USERNAME_LEN];
+    username_t username;
 
     int sock = *(int *)arg;
 
@@ -69,7 +69,7 @@ static void *serve(void *arg) {
     case REQ_POST_BILLET:
         for (int i = 0; i < nb_utilisateurs; i++) {
             if (liste[i].id == id) {
-                strcpy(username, liste[i].pseudo);
+                memcpy(username, liste[i].pseudo, USERNAME_LEN);
                 break;
             }
         }

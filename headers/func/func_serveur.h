@@ -22,7 +22,7 @@ typedef enum {
 int inscription_request(int, char *, utilisateur[], int);
 
 // Requete poster un billet
-int post_billet_request(int, char *, struct fils *, const char *);
+int post_billet_request(int, char *, struct fils *, username_t);
 
 // Requete obtention des billets
 int get_billets_request(int, const char *, struct fils *);
