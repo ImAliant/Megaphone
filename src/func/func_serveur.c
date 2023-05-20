@@ -17,8 +17,10 @@
 #define SIZE_MESS 200
 #define MAX_USERS 2047
 #define ID_BITS 11
+#define SIZE_PAQUET 512
+#define SIZE_FILENAME 256
 
-static uint16_t generate_user_id(username_t username) {
+static uint16_t generate_user_id(const username_t username) {
     // HASH
     uint16_t id = 0;
     unsigned long hash = 5381;
@@ -35,7 +37,7 @@ static uint16_t generate_user_id(username_t username) {
     return id;
 }
 
-static void create_new_user(username_t username, uint16_t user_id,
+static void create_new_user(const username_t username, uint16_t user_id,
                             utilisateur liste[], int nb_utilisateurs) {
     utilisateur user;
     memcpy(user.pseudo, username, USERNAME_LEN);
@@ -98,7 +100,7 @@ int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_
     return 0;
 }
 
-int post_billet_request(int sock_client, char *buf, struct fils *fils, username_t username) {
+int post_billet_request(int sock_client, char *buf, fils_t *fils, username_t username) {
     // TRADUCTION DU MESSAGE DU CLIENT
     uint16_t header, id, numfil, nb;
     uint8_t codereq, lendata;
@@ -123,7 +125,7 @@ int post_billet_request(int sock_client, char *buf, struct fils *fils, username_
 
     // SI LE NUMERO DE FIL EST 0, CREER UN NOUVEAU FIL
     if (numfil == 0) {
-        int newfil = create_fil(fils, id, lendata, data, username);
+        int newfil = create_fil_message(fils, id, lendata, data, username);
 
         if (newfil == -1) {
             error_request(sock_client, codereq, id, ERR_MAX_FILS_REACHED);
@@ -138,7 +140,7 @@ int post_billet_request(int sock_client, char *buf, struct fils *fils, username_
             return 1;
         }
 
-        if (add_billet(fils, numfil, id, lendata, data, username) == -1) {
+        if (add_message(fils, numfil, id, lendata, data, username) == -1) {
             error_request(sock_client, codereq, id, ERR_MAX_BILLETS_REACHED);
             return 1;
         }
@@ -208,7 +210,7 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
     send_message(sock_client, buf, SIZE_MESS);
 }
 
-static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
+static int get_nb_billets(fils_t *fils, uint16_t numfil, uint16_t nb,
                           billet_type_t type) {
     int nb_billets = 0;
     // TOUS LES BILLETS DANS UN FIL
@@ -236,37 +238,54 @@ static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
     return nb_billets;
 }
 
-static int send_billet(int sock, struct fils *fils, uint16_t numfil,
+static void send_billet(int sock, fils_t *fils, uint16_t numfil,
                        int pos_billet) {
+    int type = fils->list_fil[numfil].billets[pos_billet].type;
+
     uint8_t lendata;
     char pseudo_fil[USERNAME_LEN];
     char pseudo_billet[USERNAME_LEN];
-    char data[SIZE_MESS + 1];
+    char *data;
+    if (type == MESSAGE)
+        data = malloc(SIZE_MESS + 1);
+    else if (type == FICHIER)
+        data = "FICHIER";
 
     memset(pseudo_fil, 0, USERNAME_LEN);
     memset(pseudo_billet, 0, USERNAME_LEN);
-    memset(data, 0, SIZE_MESS + 1);
 
-    size_t sizebillet = sizeof(uint16_t) + (USERNAME_LEN) * 2 + sizeof(uint8_t) + (SIZE_MESS + 1);
+    size_t sizebillet = sizeof(uint16_t) + USERNAME_LEN * 2 + sizeof(uint8_t) + (SIZE_MESS + 1);
     char *billet = malloc(sizebillet);
     if (billet == NULL) {
         perror("malloc");
-        return 1;
+        exit(1);
     }
 
     memcpy(pseudo_fil, fils->list_fil[numfil].pseudo, USERNAME_LEN);
     memcpy(pseudo_billet, fils->list_fil[numfil].billets[pos_billet].pseudo, USERNAME_LEN);
-    memcpy(data, fils->list_fil[numfil].billets[pos_billet].contenu,
-           SIZE_MESS + 1);
-    lendata = fils->list_fil[numfil].billets[pos_billet].len;
+    if (type == MESSAGE) {
+        memcpy(data, fils->list_fil[numfil].billets[pos_billet]
+                .billet.message.contenu, SIZE_MESS+1);
+        lendata = fils->list_fil[numfil].billets[pos_billet].len;
+    }
+    else if (type == FICHIER) {
+        lendata = strlen(data);
+    }
 
     numfil += 1;
     pos_billet += 1;
 
     char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
     char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
-    printf("BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n",
-           pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
+
+    if (type == MESSAGE) {
+        printf("MESSAGE : BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n",
+            pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
+    }
+    else if (type == FICHIER) {
+        printf("FICHIER : BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n",
+            pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
+    }
     printf("ENVOI DU BILLET %d DU FIL %d\n", pos_billet, numfil);
 
     numfil = htons(numfil);
@@ -283,11 +302,9 @@ static int send_billet(int sock, struct fils *fils, uint16_t numfil,
     memcpy(ptr, data, strlen(data) + 1);
 
     send_message(sock, billet, sizebillet);
-
-    return 0;
 }
 
-void send_type_all_billets_of_one_fil(int sock, struct fils *fils,
+void send_type_all_billets_of_one_fil(int sock, fils_t *fils,
                                       uint16_t numfil) {
     int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
     for (int i = nombre_billets - 1; i >= 0; i--) {
@@ -295,7 +312,7 @@ void send_type_all_billets_of_one_fil(int sock, struct fils *fils,
     }
 }
 
-static void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
+static void send_type_nbillets_of_all_fil(int sock, fils_t *fils, int n) {
     int nombre_fils = fils->nb_fil;
     for (int i = 0; i < nombre_fils; i++) {
         int nombre_billets_temp = fils->list_fil[i].nb_billet;
@@ -307,7 +324,7 @@ static void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
     }
 }
 
-static void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
+static void send_type_all_billets_of_all_fil(int sock, fils_t *fils) {
     int nombre_fils = fils->nb_fil;
     for (int i = nombre_fils - 1; i >= 0; i--) {
         int nombre_billets = fils->list_fil[i].nb_billet;
@@ -317,7 +334,7 @@ static void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
     }
 }
 
-static void send_type_normal(int sock, struct fils *fils, uint16_t numfil,
+static void send_type_normal(int sock, fils_t *fils, uint16_t numfil,
                              int n) {
     int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
 
@@ -326,7 +343,7 @@ static void send_type_normal(int sock, struct fils *fils, uint16_t numfil,
     }
 }
 
-static int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
+static int send_billets(int sock, fils_t *fils, uint16_t numfil, int n,
                         billet_type_t type) {
     if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
         send_type_all_billets_of_one_fil(sock, fils, numfil);
@@ -383,7 +400,7 @@ static int send_num_billets_to_client(int sock_client, uint16_t numfil,
     return 0;
 }
 
-int get_billets_request(int sock_client, const char *buf, struct fils *fils) {
+int get_billets_request(int sock_client, const char *buf, fils_t *fils) {
     uint16_t header, codereq, id, numfil, nb;
     int n;
 
@@ -421,6 +438,98 @@ int get_billets_request(int sock_client, const char *buf, struct fils *fils) {
 
     // ON ENVOIE LES BILLETS AU CLIENT
     send_billets(sock_client, fils, numfil, n, type);
+
+    return 0;
+}
+
+int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp, 
+                int port_udp, struct sockaddr_in6 addr_udp, username_t username) {
+    uint16_t header, id, numfil, nb, numbloc;
+    uint8_t codereq, lendata;
+    char data[SIZE_FILENAME];
+    socklen_t addr_udp_len = sizeof(struct sockaddr_in6);
+
+    char *ptr = buf;
+    memcpy(&header, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&numfil, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&nb, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&lendata, ptr, sizeof(uint8_t));
+    ptr += sizeof(uint8_t);
+    memcpy(&data, ptr, lendata);
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s\n", codereq, id, numfil, nb, lendata, data);
+
+    // TEST SI LE NUMERO DE FIL EST VALIDE
+    if (numfil > fils->nb_fil) {
+        error_request(sock_client, codereq, id, ERR_NUMFIL);
+        return 1;
+    }
+
+    // ENVOIE PORT UDP AU CLIENT
+    nb = htons(port_udp);
+
+    size_t sizebuf = sizeof(uint16_t) * 3 + sizeof(uint8_t) + lendata;
+    char buffer[sizebuf];
+    memset(buffer, 0, sizebuf);
+
+    ptr = buffer;
+    memcpy(ptr, &header, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(ptr, &numfil, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(ptr, &nb, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+
+    send_message(sock_client, buffer, sizebuf);
+
+    // RECEPTION DES PAQUETS UDP
+    size_t size_all = MAX_FILE_SIZE;
+    char *all_paquets = malloc(size_all);
+
+    char paquet[SIZE_PAQUET];
+    memset(paquet, 0, SIZE_PAQUET);
+
+    size_t size = sizeof(uint16_t)*2 + SIZE_PAQUET;
+    char buffer_udp[size];
+    while (1) { 
+        memset(buffer_udp, 0, size);
+
+        recvfrom(sock_udp, buffer_udp, size, 0, (struct sockaddr *) &addr_udp, &addr_udp_len);
+        ptr = buffer_udp;
+        memcpy(&header, ptr, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+        memcpy(&numbloc, ptr, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+        memcpy(&paquet, ptr, SIZE_PAQUET);
+
+        strcat(all_paquets, paquet);
+
+        if (strlen(paquet) < SIZE_PAQUET) {
+            break;
+        }
+    }
+
+    // ON AFFICHE LE CONTENU DU FICHIER
+    size_t filesize = strlen(all_paquets);
+    printf("FICHIER RECU : NOM %s TAILLE %d\n", data, (int) filesize);
+
+    // ON AJOUTE LE FICHIER DANS LE FIL
+    if (numfil == 0) {
+        create_fil_fichier(fils, id, filesize, data, all_paquets, username);
+    }
+    else {
+        add_file(fils, numfil, id, filesize, data, all_paquets, username);
+    }
+
+    free(all_paquets);
 
     return 0;
 }

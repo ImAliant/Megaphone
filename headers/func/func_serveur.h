@@ -20,14 +20,14 @@ typedef enum {
 
 // Requete d'inscription
 int inscription_request(int, char *, utilisateur[], int);
-
 // Requete poster un billet
-int post_billet_request(int, char *, struct fils *, username_t);
-
+int post_billet_request(int, char *, fils_t *, username_t);
 // Requete obtention des billets
-int get_billets_request(int, const char *, struct fils *);
-
+int get_billets_request(int, const char *, fils_t *);
 // Requete d'erreur
 void error_request(int, codereq_t, uint16_t, error_t);
+// Requete ajout d'un fichier
+int add_file_request(int, char *, fils_t *, int, int, struct sockaddr_in6, username_t);
+
 
 #endif

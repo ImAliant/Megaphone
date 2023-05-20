@@ -18,10 +18,19 @@
 #define SIZE_MESS 200
 #define MAX_USERS 100
 
-struct fils *fils;
-int nb_utilisateurs = 0;
 
+int nb_utilisateurs = 0;
 utilisateur liste[MAX_USERS];
+fils_t fils;
+
+struct server {
+    int sock;
+    int sock_udp;
+    int *sock_client;
+    struct sockaddr_in6 addr_udp;
+    int port_tcp;
+    int port_udp;
+};
 
 static int is_user_registered(uint16_t id) {
     for (int i = 0; i < nb_utilisateurs; i++) {
@@ -38,12 +47,16 @@ static void *serve(void *arg) {
     codereq_t codereq;
     username_t username;
 
-    int sock = *(int *)arg;
+    struct server *s = (struct server *)arg;
+    int sock_udp = s->sock_udp;
+    int port_udp = s->port_udp;
+    int sock_client = *(s->sock_client);
+    struct sockaddr_in6 addr = s->addr_udp;
 
     char buf[SIZE_MESS * 2];
     memset(buf, 0, SIZE_MESS * 2);
 
-    recv_message(sock, buf, SIZE_MESS * 2);
+    recv_message(sock_client, buf, SIZE_MESS * 2);
 
     memcpy(&header, buf, sizeof(uint16_t));
     codereq = ntohs(header) & 0x1F;
@@ -51,18 +64,18 @@ static void *serve(void *arg) {
 
     // ENVOIE ENTETE ERREUR SI ID DIFFERENT DE 0 LORSQUE CODEREQ 1
     if (codereq == REQ_INSCRIPTION && id != 0) {
-        error_request(sock, codereq, id, ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
+        error_request(sock_client, codereq, id, ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
         return NULL;
     }
     // ENVOIE ENTETE ERREUR SI ID N'EXISTE PAS POUR LES AUTRES REQUETES
     if (codereq != REQ_INSCRIPTION && !is_user_registered(id)) {
-        error_request(sock, codereq, id, ERR_ID_DOES_NOT_EXIST);
+        error_request(sock_client, codereq, id, ERR_ID_DOES_NOT_EXIST);
         return NULL;
     }
 
     switch (codereq) {
     case REQ_INSCRIPTION:
-        r = inscription_request(sock, buf, liste, nb_utilisateurs);
+        r = inscription_request(sock_client, buf, liste, nb_utilisateurs);
         if (r == 0)
             nb_utilisateurs++;
         break;
@@ -74,41 +87,45 @@ static void *serve(void *arg) {
             }
         }
 
-        r = post_billet_request(sock, buf, fils, username);
+        post_billet_request(sock_client, buf, &fils, username);
         break;
     case REQ_GET_BILLET:
-        r = get_billets_request(sock, buf, fils);
+        get_billets_request(sock_client, buf, &fils);
         break;
     case REQ_SUBSCRIBE:
     case REQ_ADD_FILE:
+        add_file_request(sock_client, buf, &fils, sock_udp, port_udp, addr, username);
+        break;
     case REQ_DW_FILE:
         fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
         exit(1);
     default:
-        error_request(sock, codereq, id, ERR_CODEREQ_UNKNOWN);
+        error_request(sock_client, codereq, id, ERR_CODEREQ_UNKNOWN);
         break;
     }
 
-    close(sock);
-    free(arg);
+    close(sock_client);
+    free(s->sock_client);
 
     return NULL;
 }
 
-static void loop(int sock) {
+static void loop(struct server *server) {
     struct sockaddr_in6 addrclient = {0};
     socklen_t size = sizeof(addrclient);
 
     int sock_client;
-    while ((sock_client = accept(sock, (struct sockaddr *)&addrclient, &size))) {
+    while ((sock_client = accept(server->sock, (struct sockaddr *)&addrclient, &size))) {
         if (sock_client < 0) continue;
 
         // on crée la variable sur le tas
         int *sock_client_stack = malloc(sizeof(int));
         *sock_client_stack = sock_client;
 
+        server->sock_client = sock_client_stack;
+
         pthread_t thread;
-        int r = pthread_create(&thread, NULL, serve, sock_client_stack);
+        int r = pthread_create(&thread, NULL, serve, /*sock_client_stack*/server);
         if (r < 0) {
             perror("pthread_create");
             continue;
@@ -161,17 +178,42 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    fils = malloc(sizeof(struct fils));
-    fils->nb_fil = 0;
+    fils.nb_fil = 0;
 
     int port = atoi(argv[1]);
     int sock = create_server(port);
 
-    loop(sock);
+    int sock_udp = socket(PF_INET6, SOCK_DGRAM, 0);
+    if (sock_udp < 0) {
+        perror("socket");
+        exit(1);
+    }
+    struct sockaddr_in6 addr = {0};
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(6565);
+
+    int yes = 1;
+    int r = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    if (r < 0) goto fail;
+
+    r = bind(sock_udp, (struct sockaddr *)&addr, sizeof(addr));
+    if (r < 0) goto fail;
+
+    struct server *server = malloc(sizeof(struct server));
+    server->sock = sock;
+    server->sock_udp = sock_udp;
+    server->addr_udp = addr;
+    server->port_tcp = port;
+    server->port_udp = 6565;
+
+    loop(server);
 
     close(sock);
+    close(sock_udp);
 
-    free(fils);
+    fail:
+        if (sock >= 0) close(sock);
+        return -1;
 
     return 0;
 }

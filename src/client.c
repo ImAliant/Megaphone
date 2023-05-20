@@ -37,6 +37,8 @@ static void request(int sock) {
         break;
     case REQ_SUBSCRIBE:
     case REQ_ADD_FILE:
+        add_file_request(sock);
+        break;
     case REQ_DW_FILE:
         fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
         exit(1);
