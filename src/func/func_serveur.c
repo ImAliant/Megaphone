@@ -18,6 +18,34 @@
 #define MAX_USERS 2047
 #define ID_BITS 11
 
+int recv_header(int sock, client_header_t *header) {
+    uint16_t buf = 0;
+
+    int r = recv_uint16(sock, &buf);
+    if (r < 0) return r;
+
+    memset(header, 0, sizeof(client_header_t));
+
+    header->codereq = buf >> 11;
+    header->id = buf % (1 << 11);
+
+    return 0;
+}
+
+int send_header(int sock, server_header_t header) {
+    uint16_t codereq_id = 0;
+    codereq_id |= header.codereq << 11;
+    codereq_id |= header.id % (1 << 12);
+
+    int r = send_uint16(sock, codereq_id);
+    if (r < 0) return r;
+    r = send_uint16(sock, header.numfil);
+    if (r < 0) return r;
+    r = send_uint16(sock, header.nb);
+
+    return r;
+}
+
 static uint16_t generate_user_id(username_t username) {
     // HASH
     uint16_t id = 0;
@@ -35,18 +63,16 @@ static uint16_t generate_user_id(username_t username) {
     return id;
 }
 
-static void create_new_user(username_t username, uint16_t user_id,
-                            utilisateur liste[], int nb_utilisateurs) {
+static void create_new_user(username_t username, uint16_t user_id, utilisateur liste[], int *nb_utilisateurs) {
     utilisateur user;
     memcpy(user.pseudo, username, USERNAME_LEN);
     user.id = user_id;
 
-    liste[nb_utilisateurs] = user;
-    nb_utilisateurs++;
+    liste[*nb_utilisateurs] = user;
+    (*nb_utilisateurs)++;
 }
 
-static int is_pseudo_used(const username_t username, const utilisateur liste[],
-                          int nb_utilisateurs) {
+static int is_pseudo_used(const username_t username, const utilisateur liste[], int nb_utilisateurs) {
     for (int i = 0; i < nb_utilisateurs; i++) {
         if (strcmp(liste[i].pseudo, username) == 0) {
             return 1;
@@ -55,78 +81,68 @@ static int is_pseudo_used(const username_t username, const utilisateur liste[],
     return 0;
 }
 
-int inscription_request(int sock_client, char *buf, utilisateur liste[], int nb_utilisateurs) {
-    uint16_t header;
-    uint16_t id;
-    codereq_t codereq;
+int inscription_request(int sock, client_header_t header, utilisateur liste[], int *nb_utilisateurs) {
     username_t username;
 
-    memcpy(&header, buf, sizeof(uint16_t));
-    codereq = ntohs(header) & 0x1F;
-    id = ntohs(header) >> 5;
-    memcpy(username, buf + sizeof(uint16_t), USERNAME_LEN);
+    int r = recv_raw(sock, username, USERNAME_LEN);
+    if (r < 0) return r;
 
     // TEST SI LE NOMBRE MAX D'UTILISATEURS EST ATTEINT
-    if (nb_utilisateurs >= MAX_USERS) {
-        error_request(sock_client, codereq, id, ERR_MAX_USERS_REACHED);
-        return 1;
+    if (*nb_utilisateurs >= MAX_USERS) {
+        error_request(sock, header.codereq, header.id, ERR_MAX_USERS_REACHED);
+        return -1;
     }
 
     // TEST SI LE PSEUDONYME EST DEJA UTILISE
-    if (is_pseudo_used(username, liste, nb_utilisateurs)) {
-        error_request(sock_client, codereq, id, ERR_PSEUDO_ALREADY_USED);
-        return 1;
+    if (is_pseudo_used(username, liste, *nb_utilisateurs)) {
+        error_request(sock, header.codereq, header.id, ERR_PSEUDO_ALREADY_USED);
+        return -1;
     }
 
-    // AFFICHAGE DU MESSAGE DU CLIENT
-    char buf2[USERNAME_LEN + 1];
-    printf("CODEREQ %d, ID %hd, PSEUDONYME %s\n", codereq, id, username_to_string(username, buf2));
+    server_header_t res_header = {0};
+    res_header.codereq = REQ_INSCRIPTION;
+    res_header.id = generate_user_id(username);
 
-    id = generate_user_id(username);
+    create_new_user(username, res_header.id, liste, nb_utilisateurs);
 
-    create_new_user(username, id, liste, nb_utilisateurs);
+    for (int i = 0; i < *nb_utilisateurs; i++) {
+        char usrname_buf[USERNAME_LEN + 1];
+        username_to_string(liste[i].pseudo, usrname_buf);
+        printf("%d: %s\n", liste[i].id, usrname_buf);
 
-    codereq = REQ_INSCRIPTION;
+    }
 
-    header = htons((id << 5) | (codereq & 0x1F));
-
-    memset(buf, 0, SIZE_MESS);
-    memcpy(buf, &header, sizeof(header));
-
-    send_message(sock_client, buf, SIZE_MESS);
-
-    return 0;
+    return send_header(sock, res_header);
 }
 
-int post_billet_request(int sock_client, char *buf, struct fils *fils, username_t username) {
+int post_billet_request(int sock, client_header_t header, struct fils *fils, username_t username) {
     // TRADUCTION DU MESSAGE DU CLIENT
-    uint16_t header, id, numfil, nb;
-    uint8_t codereq, lendata;
-    char data[SIZE_MESS + 1];
-    memset(data, 0, SIZE_MESS);
-
     // RECUPERATION DE L'ENTETE
-    memcpy(&header, buf, sizeof(uint16_t));
-    memcpy(&numfil, buf + sizeof(uint16_t), sizeof(uint16_t));
-    memcpy(&nb, buf + sizeof(uint16_t) * 2, sizeof(uint16_t));
-    memcpy(&lendata, buf + sizeof(uint16_t) * 3, sizeof(uint8_t));
-    memcpy(data, buf + sizeof(uint16_t) * 3 + sizeof(uint8_t), lendata);
+    uint16_t numfil;
+    int r = recv_uint16(sock, &numfil);
+    if (r < 0) return r;
 
-    codereq = ntohs(header) & 0x1F;
-    id = ntohs(header) >> 5;
-    numfil = ntohs(numfil);
-    nb = ntohs(nb);
+    uint16_t nb;
+    r = recv_uint16(sock, &nb);
+    if (r < 0) return r;
+
+    uint8_t lendata = 0;
+    r = recv_uint8(sock, &lendata);
+    if (r < 0) return r;
+
+    char data[lendata];
+    r = recv_raw(sock, data, lendata);
 
     // AFFICHAGE DU MESSAGE DU CLIENT
-    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s\n",
-           codereq, id, numfil, nb, lendata, data);
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %.*s\n",
+           header.codereq, header.id, numfil, nb, lendata, lendata, data);
 
     // SI LE NUMERO DE FIL EST 0, CREER UN NOUVEAU FIL
     if (numfil == 0) {
-        int newfil = create_fil(fils, id, lendata, data, username);
+        int newfil = create_fil(fils, header.id, lendata, data, username);
 
-        if (newfil == -1) {
-            error_request(sock_client, codereq, id, ERR_MAX_FILS_REACHED);
+        if (newfil < 0) {
+            error_request(sock, header.codereq, header.id, ERR_MAX_FILS_REACHED);
             return 1;
         }
     } else {
@@ -134,37 +150,28 @@ int post_billet_request(int sock_client, char *buf, struct fils *fils, username_
 
         // TEST SI LE NUMERO DE FIL EST VALIDE
         if (numfil > fils->nb_fil) {
-            error_request(sock_client, codereq, id, ERR_NUMFIL);
+            error_request(sock, header.codereq, header.id, ERR_NUMFIL);
             return 1;
         }
 
-        if (add_billet(fils, numfil, id, lendata, data, username) == -1) {
-            error_request(sock_client, codereq, id, ERR_MAX_BILLETS_REACHED);
+        if (add_billet(fils, numfil, header.id, lendata, data, username) < 0) {
+            error_request(sock, header.codereq, header.id, ERR_MAX_BILLETS_REACHED);
             return 1;
         }
     }
 
+    server_header_t res_header = {0};
     // REPONSE AU CLIENT
-    codereq = REQ_POST_BILLET;
-    header = htons((id << 5) | (codereq & 0x1F));
-    numfil = htons(numfil);
-    nb = htons(0);
+    res_header.codereq = REQ_POST_BILLET;
+    res_header.id = header.id;
+    res_header.numfil = numfil;
+    res_header.nb = 0;
 
-    memset(buf, 0, SIZE_MESS * 2);
-    memcpy(buf, &header, sizeof(uint16_t));
-    memcpy(buf + sizeof(uint16_t), &numfil, sizeof(uint16_t));
-    memcpy(buf + sizeof(uint16_t) * 2, &nb, sizeof(uint16_t));
-
-    send_message(sock_client, buf, sizeof(uint16_t) * 3);
-
-    return 0;
+    return send_header(sock, res_header);
 }
 
-void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
-                   error_t err) {
-    uint16_t header_serv;
-    char buf[SIZE_MESS];
-
+int error_request(int sock, codereq_t codereq_client, uint16_t id, error_t err) {
+    server_header_t res_header = {0};
     switch (err) {
     case ERR_CODEREQ_UNKNOWN:
         printf("CODEREQ INCONNU : <%d>, ID %d\n", codereq_client, id);
@@ -179,16 +186,13 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
         printf("PSEUDONYME DEJA UTILISE : <%d>, ID %d\n", codereq_client, id);
         break;
     case ERR_MAX_FILS_REACHED:
-        printf("IMPOSSIBLE DE CREER UN NOUVEAU FIL : <%d>, ID %d\n", codereq_client,
-               id);
+        printf("IMPOSSIBLE DE CREER UN NOUVEAU FIL : <%d>, ID %d\n", codereq_client, id);
         break;
     case ERR_MAX_BILLETS_REACHED:
-        printf("IMPOSSIBLE DE CREER UN NOUVEAU BILLET : <%d>, ID %d\n",
-               codereq_client, id);
+        printf("IMPOSSIBLE DE CREER UN NOUVEAU BILLET : <%d>, ID %d\n", codereq_client, id);
         break;
     case ERR_MAX_USERS_REACHED:
-        printf("IMPOSSIBLE DE CREER UN NOUVEAU UTILISATEUR : <%d>, ID %d\n",
-               codereq_client, id);
+        printf("IMPOSSIBLE DE CREER UN NOUVEAU UTILISATEUR : <%d>, ID %d\n", codereq_client, id);
         break;
     case ERR_NUMFIL:
         printf("NUMERO DE FIL INCONNU : <%d>, ID %d\n", codereq_client, id);
@@ -198,14 +202,11 @@ void error_request(int sock_client, codereq_t codereq_client, uint16_t id,
         exit(1);
     }
 
-    codereq_client = 0;
-    header_serv = htons((id << 5) | (codereq_client & 0x1F));
+    res_header.codereq = 0;
+    res_header.id = id;
+    codereq_client = REQ_SERVER_ERROR;
 
-    memset(buf, 0, SIZE_MESS);
-    memcpy(buf, &header_serv, sizeof(uint16_t));
-    memcpy(buf + sizeof(uint16_t), &err, sizeof(int));
-
-    send_message(sock_client, buf, SIZE_MESS);
+    return send_header(sock, res_header);
 }
 
 static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
@@ -236,114 +237,98 @@ static int get_nb_billets(struct fils *fils, uint16_t numfil, uint16_t nb,
     return nb_billets;
 }
 
-static int send_billet(int sock, struct fils *fils, uint16_t numfil,
-                       int pos_billet) {
-    uint8_t lendata;
-    char pseudo_fil[USERNAME_LEN];
-    char pseudo_billet[USERNAME_LEN];
-    char data[SIZE_MESS + 1];
+static int send_billet(int sock, struct fils *fils, uint16_t numfil, int pos_billet) {
+    struct fil fil = fils->list_fil[numfil];
+    struct billet billet = fil.billets[pos_billet];
 
-    memset(pseudo_fil, 0, USERNAME_LEN);
-    memset(pseudo_billet, 0, USERNAME_LEN);
-    memset(data, 0, SIZE_MESS + 1);
-
-    size_t sizebillet = sizeof(uint16_t) + (USERNAME_LEN) * 2 + sizeof(uint8_t) + (SIZE_MESS + 1);
-    char *billet = malloc(sizebillet);
-    if (billet == NULL) {
-        perror("malloc");
-        return 1;
-    }
-
-    memcpy(pseudo_fil, fils->list_fil[numfil].pseudo, USERNAME_LEN);
-    memcpy(pseudo_billet, fils->list_fil[numfil].billets[pos_billet].pseudo, USERNAME_LEN);
-    memcpy(data, fils->list_fil[numfil].billets[pos_billet].contenu,
-           SIZE_MESS + 1);
-    lendata = fils->list_fil[numfil].billets[pos_billet].len;
-
-    numfil += 1;
-    pos_billet += 1;
-
-    char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
-    char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
+    char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(fil.pseudo, buf_pseudo_fil);
+    char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(billet.pseudo, buf_pseudo_billet);
     printf("BILLET %d DU FIL %d : PSEUDO FIL %s, PSEUDO BILLET %s, LEN DATA %d, DATA %s\n",
-           pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
+           pos_billet, numfil, buf_pseudo_fil, buf_pseudo_billet, billet.len, billet.contenu);
     printf("ENVOI DU BILLET %d DU FIL %d\n", pos_billet, numfil);
 
-    numfil = htons(numfil);
+    int r = send_uint16(sock, numfil);
+    if (r < 0) return r;
 
-    char *ptr = billet;
-    memcpy(ptr, &numfil, sizeof(uint16_t));
-    ptr += sizeof(uint16_t);
-    memcpy(ptr, pseudo_fil, strlen(pseudo_fil) + 1);
-    ptr += strlen(pseudo_fil) + 1;
-    memcpy(ptr, pseudo_billet, strlen(pseudo_billet) + 1);
-    ptr += strlen(pseudo_billet) + 1;
-    memcpy(ptr, &lendata, sizeof(uint8_t));
-    ptr += sizeof(uint8_t);
-    memcpy(ptr, data, strlen(data) + 1);
+    r = send_raw(sock, fil.pseudo, USERNAME_LEN);
+    if (r < 0) return r;
 
-    send_message(sock, billet, sizebillet);
+    r = send_raw(sock, billet.pseudo, USERNAME_LEN);
+    if (r < 0) return r;
+
+    r = send_uint8(sock, billet.len);
+    if (r < 0) return r;
+
+    return send_raw(sock, billet.contenu, billet.len);
+}
+
+static int send_type_all_billets_of_one_fil(int sock, struct fils *fils, uint16_t numfil) {
+    int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
+
+    for (int i = nombre_billets - 1; i >= 0; i--) {
+        int r = send_billet(sock, fils, numfil - 1, i);
+        if (r < 0) return r;
+    }
 
     return 0;
 }
 
-void send_type_all_billets_of_one_fil(int sock, struct fils *fils,
-                                      uint16_t numfil) {
-    int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
-    for (int i = nombre_billets - 1; i >= 0; i--) {
-        send_billet(sock, fils, numfil - 1, i);
-    }
-}
-
-static void send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
+static int send_type_nbillets_of_all_fil(int sock, struct fils *fils, int n) {
     int nombre_fils = fils->nb_fil;
+
     for (int i = 0; i < nombre_fils; i++) {
         int nombre_billets_temp = fils->list_fil[i].nb_billet;
 
-        for (int j = nombre_billets_temp - 1;
-             j >= nombre_billets_temp - n && j >= 0; j--) {
-            send_billet(sock, fils, i, j);
+        for (int j = nombre_billets_temp - 1; j >= nombre_billets_temp - n && j >= 0; j--) {
+            int r = send_billet(sock, fils, i, j);
+            if (r < 0) return r;
         }
-    }
-}
-
-static void send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
-    int nombre_fils = fils->nb_fil;
-    for (int i = nombre_fils - 1; i >= 0; i--) {
-        int nombre_billets = fils->list_fil[i].nb_billet;
-        for (int j = nombre_billets - 1; j >= 0; j--) {
-            send_billet(sock, fils, i, j);
-        }
-    }
-}
-
-static void send_type_normal(int sock, struct fils *fils, uint16_t numfil,
-                             int n) {
-    int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
-
-    for (int j = nombre_billets - 1; j >= nombre_billets - n && j >= 0; j--) {
-        send_billet(sock, fils, numfil - 1, j);
-    }
-}
-
-static int send_billets(int sock, struct fils *fils, uint16_t numfil, int n,
-                        billet_type_t type) {
-    if (type == TYPE_ALL_BILLETS_OF_ONE_FIL) {
-        send_type_all_billets_of_one_fil(sock, fils, numfil);
-    } else if (type == TYPE_NBILLETS_OF_ALL_FIL) {
-        send_type_nbillets_of_all_fil(sock, fils, numfil);
-    } else if (type == TYPE_ALL_BILLETS_OF_ALL_FILS) {
-        send_type_all_billets_of_all_fil(sock, fils);
-    } else if (type == TYPE_NORMAL) {
-        send_type_normal(sock, fils, numfil, n);
     }
 
     return 0;
 }
 
-static billet_type_t find_case_type(uint16_t numfil, uint16_t nb,
-                                    int sock_client, codereq_t codereq,
-                                    uint16_t id) {
+static int send_type_all_billets_of_all_fil(int sock, struct fils *fils) {
+    int nombre_fils = fils->nb_fil;
+
+    for (int i = nombre_fils - 1; i >= 0; i--) {
+        int nombre_billets = fils->list_fil[i].nb_billet;
+
+        for (int j = nombre_billets - 1; j >= 0; j--) {
+            int r = send_billet(sock, fils, i, j);
+            if (r < 0) return r;
+        }
+    }
+
+    return 0;
+}
+
+static int send_type_normal(int sock, struct fils *fils, uint16_t numfil, int n) {
+    int nombre_billets = fils->list_fil[numfil - 1].nb_billet;
+
+    for (int j = nombre_billets - 1; j >= nombre_billets - n && j >= 0; j--) {
+        int r = send_billet(sock, fils, numfil - 1, j);
+        if (r < 0) return r;
+    }
+
+    return 0;
+}
+
+static int send_billets(int sock, struct fils *fils, uint16_t numfil, int n, billet_type_t type) {
+    switch (type) {
+    case TYPE_ALL_BILLETS_OF_ONE_FIL:
+        return send_type_all_billets_of_one_fil(sock, fils, numfil);
+    case TYPE_NBILLETS_OF_ALL_FIL:
+        return send_type_nbillets_of_all_fil(sock, fils, numfil);
+    case TYPE_ALL_BILLETS_OF_ALL_FILS:
+        return send_type_all_billets_of_all_fil(sock, fils);
+    case TYPE_NORMAL:
+        return send_type_normal(sock, fils, numfil, n);
+    default: return -1;
+    }
+}
+
+static billet_type_t find_case_type(uint16_t numfil, uint16_t nb) {
     billet_type_t type;
     if (numfil == 0 && nb == 0) {
         type = TYPE_ALL_BILLETS_OF_ALL_FILS;
@@ -351,65 +336,50 @@ static billet_type_t find_case_type(uint16_t numfil, uint16_t nb,
         type = TYPE_NBILLETS_OF_ALL_FIL;
     } else if (nb == 0) {
         type = TYPE_ALL_BILLETS_OF_ONE_FIL;
-    } else if (nb != 0 && numfil != 0) {
-        type = TYPE_NORMAL;
     } else {
-        error_request(sock_client, codereq, id, ERR_NON_TYPE);
-        return -1;
+        type = TYPE_NORMAL;
     }
 
     return type;
 }
 
-static int send_num_billets_to_client(int sock_client, uint16_t numfil,
-                                      int nb_billets, uint16_t id) {
-    uint16_t codereq, header, nb;
+static int send_num_billets_to_client(int sock, client_header_t header, uint16_t numfil, int nb_billets) {
+    server_header_t res_header;
+    res_header.codereq = header.codereq;
+    res_header.id = header.id;
+    res_header.numfil = numfil;
+    res_header.nb = nb_billets;
 
-    codereq = REQ_GET_BILLET;
-    header = htons((id << 5) | (codereq & 0x1F));
-    numfil = htons(numfil);
-    nb = htons(nb_billets);
-
-    size_t sizebuf = sizeof(uint16_t) * 3;
-    char buffer[sizebuf];
-    memset(buffer, 0, sizebuf);
-
-    memcpy(buffer, &header, sizeof(uint16_t));
-    memcpy(buffer + sizeof(uint16_t), &numfil, sizeof(uint16_t));
-    memcpy(buffer + sizeof(uint16_t) * 2, &nb, sizeof(uint16_t));
-
-    send_message(sock_client, buffer, sizebuf);
-
-    return 0;
+    return send_header(sock, res_header);
 }
 
-int get_billets_request(int sock_client, const char *buf, struct fils *fils) {
-    uint16_t header, codereq, id, numfil, nb;
-    int n;
+int get_billets_request(int sock, client_header_t header, struct fils *fils) {
+    uint16_t numfil;
+    int r = recv_uint16(sock, &numfil);
+    if (r < 0) return r;
 
-    const char *ptr = buf;
-    memcpy(&header, ptr, sizeof(uint16_t));
-    ptr += sizeof(uint16_t);
-    memcpy(&numfil, ptr, sizeof(uint16_t));
-    ptr += sizeof(uint16_t);
-    memcpy(&nb, ptr, sizeof(uint16_t));
+    uint16_t nb;
+    r = recv_uint16(sock, &nb);
+    if (r < 0) return r;
 
-    codereq = ntohs(header) & 0x1F;
-    id = ntohs(header) >> 5;
-    numfil = ntohs(numfil);
-    nb = ntohs(nb);
+    uint16_t lendata;
+    r = recv_uint16(sock, &lendata);
+    if (r < 0) return r;
 
-    n = nb;
+    if (lendata != 0) {
+        error_request(sock, header.codereq, header.id, ERR_TODO);
+        return -1;
+    }
 
-    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n", codereq, id, numfil, nb);
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n", header.codereq, header.id, numfil, nb);
 
     // TEST SI LE NUMERO DE FIL EST VALIDE
     if (numfil > fils->nb_fil) {
-        error_request(sock_client, codereq, id, ERR_NUMFIL);
+        error_request(sock, header.codereq, header.id, ERR_NUMFIL);
         return 1;
     }
 
-    billet_type_t type = find_case_type(numfil, nb, sock_client, codereq, id);
+    billet_type_t type = find_case_type(numfil, nb);
     if (type == TYPE_ERROR) {
         return 1;
     }
@@ -417,10 +387,9 @@ int get_billets_request(int sock_client, const char *buf, struct fils *fils) {
     int nb_billets = get_nb_billets(fils, numfil, nb, type);
 
     // ENVOIE LE NOMBRE DE BILLETS QUE VA RECEVOIR LE CLIENT
-    send_num_billets_to_client(sock_client, numfil, nb_billets, id);
+    r = send_num_billets_to_client(sock, header, numfil, nb_billets);
+    if (r < 0) return r;
 
     // ON ENVOIE LES BILLETS AU CLIENT
-    send_billets(sock_client, fils, numfil, n, type);
-
-    return 0;
+    return send_billets(sock, fils, numfil, nb, type);
 }

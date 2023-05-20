@@ -56,7 +56,7 @@ int main(int argc, const char *argv[]) {
     const char *port = argv[2];
     int sock = connexion_server(hostname, port);
 
-    printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
+    printf("ÊTES-VOUS INSCRIT ? (o/n): ");
     char buf[SIZE_MESS];
     memset(buf, 0, SIZE_MESS);
     const char *r = fgets(buf, SIZE_MESS, stdin);
@@ -68,7 +68,7 @@ int main(int argc, const char *argv[]) {
     buf[strlen(buf) - 1] = '\0';
 
     if (strcmp(buf, "o") != 0 && strcmp(buf, "n") != 0) {
-        printf("ERREUR : Veuillez saisir 'o' ou 'n' \n");
+        printf("ERREUR : Veuillez saisir 'o' ou 'n'\n");
         exit(1);
     }
 

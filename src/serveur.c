@@ -33,61 +33,60 @@ static int is_user_registered(uint16_t id) {
 }
 
 static void *serve(void *arg) {
-    int r;
-    uint16_t header, id;
-    codereq_t codereq;
-    username_t username;
-
     int sock = *(int *)arg;
 
-    char buf[SIZE_MESS * 2];
-    memset(buf, 0, SIZE_MESS * 2);
-
-    recv_message(sock, buf, SIZE_MESS * 2);
-
-    memcpy(&header, buf, sizeof(uint16_t));
-    codereq = ntohs(header) & 0x1F;
-    id = ntohs(header) >> 5;
-
-    // ENVOIE ENTETE ERREUR SI ID DIFFERENT DE 0 LORSQUE CODEREQ 1
-    if (codereq == REQ_INSCRIPTION && id != 0) {
-        error_request(sock, codereq, id, ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
-        return NULL;
-    }
-    // ENVOIE ENTETE ERREUR SI ID N'EXISTE PAS POUR LES AUTRES REQUETES
-    if (codereq != REQ_INSCRIPTION && !is_user_registered(id)) {
-        error_request(sock, codereq, id, ERR_ID_DOES_NOT_EXIST);
-        return NULL;
-    }
-
-    switch (codereq) {
-    case REQ_INSCRIPTION:
-        r = inscription_request(sock, buf, liste, nb_utilisateurs);
-        if (r == 0)
-            nb_utilisateurs++;
-        break;
-    case REQ_POST_BILLET:
-        for (int i = 0; i < nb_utilisateurs; i++) {
-            if (liste[i].id == id) {
-                memcpy(username, liste[i].pseudo, USERNAME_LEN);
-                break;
-            }
+    int r;
+    client_header_t header;
+    while ((r = recv_header(sock, &header)) >= 0) {
+        if (r < 0) {
+            perror("Erreur : ");
+            break;
         }
 
-        r = post_billet_request(sock, buf, fils, username);
-        break;
-    case REQ_GET_BILLET:
-        r = get_billets_request(sock, buf, fils);
-        break;
-    case REQ_SUBSCRIBE:
-    case REQ_ADD_FILE:
-    case REQ_DW_FILE:
-        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
-        exit(1);
-    default:
-        error_request(sock, codereq, id, ERR_CODEREQ_UNKNOWN);
-        break;
+        username_t username;
+
+        // ENVOIE ENTETE ERREUR SI ID DIFFERENT DE 0 LORSQUE CODEREQ 1
+        if (header.codereq == REQ_INSCRIPTION && header.id != 0) {
+            error_request(sock, header.codereq, header.id, ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
+            return NULL;
+        }
+        // ENVOIE ENTETE ERREUR SI ID N'EXISTE PAS POUR LES AUTRES REQUETES
+        if (header.codereq != REQ_INSCRIPTION && !is_user_registered(header.id)) {
+            error_request(sock, header.codereq, header.id, ERR_ID_DOES_NOT_EXIST);
+            return NULL;
+        }
+
+        switch (header.codereq) {
+        case REQ_INSCRIPTION:
+            r = inscription_request(sock, header, liste, &nb_utilisateurs);
+            if (r == 0)
+                nb_utilisateurs++;
+            break;
+        case REQ_POST_BILLET:
+            for (int i = 0; i < nb_utilisateurs; i++) {
+                if (liste[i].id == header.id) {
+                    memcpy(username, liste[i].pseudo, USERNAME_LEN);
+                    break;
+                }
+            }
+
+            r = post_billet_request(sock, header, fils, username);
+            break;
+        case REQ_GET_BILLET:
+            r = get_billets_request(sock, header, fils);
+            break;
+        case REQ_SUBSCRIBE:
+        case REQ_ADD_FILE:
+        case REQ_DW_FILE:
+            fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
+            exit(1);
+        default:
+            error_request(sock, header.codereq, header.id, ERR_CODEREQ_UNKNOWN);
+            break;
+        }
     }
+
+    printf("DECONNEXION CLIENT (%d)\n", sock);
 
     close(sock);
     free(arg);
@@ -122,7 +121,7 @@ static void loop(int sock) {
 
         int port = htons(addrclient.sin6_port);
 
-        printf("CONNEXION CLIENT : %s (port %d)\n", nom_dst, port);
+        printf("CONNEXION CLIENT (%d): %s (port %d)\n", sock_client, nom_dst, port);
     }
 }
 

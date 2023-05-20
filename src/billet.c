@@ -3,31 +3,31 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../headers/billet.h"
+#include "billet.h"
 
 static struct billet create_billet(uint16_t id, uint8_t lendata, const char *data, username_t username) {
     struct billet new_billet;
     new_billet.idClient = id;
     new_billet.len = lendata;
     memcpy(new_billet.pseudo, username, USERNAME_LEN);
+    memset(new_billet.contenu, 0, SIZE_MESS + 1);
     memcpy(new_billet.contenu, data, lendata);
-    new_billet.contenu[lendata] = '\0';
 
     return new_billet;
 }
 
-int add_billet(struct fils *fils, uint16_t numfil, uint16_t id, uint8_t lendata,
-               const char *data, username_t username) {
-    int last_billet = fils->list_fil[numfil - 1].nb_billet;
-    if (last_billet >= 100) {
+int add_billet(struct fils *fils, uint16_t numfil, uint16_t id,
+               uint8_t lendata, const char *data, username_t username) {
+    struct fil fil = fils->list_fil[numfil - 1];
+
+    if (fil.nb_billet >= 100) {
         return -1;
     }
 
     struct billet new_billet = create_billet(id, lendata, data, username);
 
-    memcpy(&fils->list_fil[numfil - 1].billets[last_billet], &new_billet,
-           sizeof(struct billet));
-    fils->list_fil[numfil - 1].nb_billet++;
+    memcpy(&fil.billets[fil.nb_billet], &new_billet, sizeof(struct billet));
+    fil.nb_billet++;
 
     return 0;
 }

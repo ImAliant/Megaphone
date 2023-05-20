@@ -8,6 +8,8 @@ typedef enum {
     REQ_SUBSCRIBE,
     REQ_ADD_FILE,
     REQ_DW_FILE,
+
+    REQ_SERVER_ERROR = 31,
 } codereq_t;
 
 #endif

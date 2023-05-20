@@ -17,46 +17,69 @@
 #define MAX_VALUE_11BITS_INTEGER ((1 << 11) - 1)
 #define BUFLEN 4096
 
-int error_request(const char *buf) {
-    uint16_t header;
-    uint8_t codereq;
-    int type;
+int recv_header(int sock, server_header_t *header) {
+    memset(header, 0, sizeof(server_header_t));
 
-    memcpy(&header, buf, sizeof(header));
-    codereq = ntohs(header) & 0x1f;
-    if (codereq > 0) {
+    uint16_t codereq_id;
+    int r = recv_uint16(sock, &codereq_id);
+    if (r < 0) return r;
+    codereq_id = codereq_id;
+
+    header->codereq = codereq_id >> 11;
+    header->id = codereq_id % (1 << 11);
+
+    r = recv_uint16(sock, &header->numfil);
+    if (r < 0) return r;
+
+    return recv_uint16(sock, &header->nb);
+}
+
+int send_header(int sock, client_header_t header) {
+    uint16_t buf = 0;
+
+    buf |= header.codereq << 11;
+    buf |= header.id % (1 << 12);
+
+    return send_uint16(sock, buf);
+}
+
+int error_request(server_header_t header) {
+    if (header.codereq == 31) {
+        fprintf(stderr, "ERREUR SERVEUR\n");
+        return 1;
+    }
+
+    if (header.codereq > 0) {
         return 0;
     }
 
-    memcpy(&type, buf + sizeof(uint16_t), sizeof(type));
-
-    switch (type) {
+    switch (header.numfil) {
     case ERR_CODEREQ_UNKNOWN:
-        printf("ERREUR : REQUETE INCONNUE \n");
+        printf("ERREUR : REQUETE INCONNUE\n");
         break;
     case ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE:
-        printf("ERREUR : ID NON NUL AVEC CODEREQ=1 \n");
+        printf("ERREUR : ID NON NUL AVEC CODEREQ=1\n");
         break;
     case ERR_ID_DOES_NOT_EXIST:
-        printf("ERREUR : ID INEXISTANT DANS LA TABLE \n");
+        printf("ERREUR : ID INEXISTANT DANS LA TABLE\n");
         break;
     case ERR_PSEUDO_ALREADY_USED:
-        printf("ERREUR : PSEUDO DEJA UTILISE \n");
+        printf("ERREUR : PSEUDO DEJA UTILISE\n");
         break;
     case ERR_MAX_FILS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU FIL \n");
+        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU FIL\n");
         break;
     case ERR_MAX_USERS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU UTILISATEUR \n");
+        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU UTILISATEUR\n");
         break;
     case ERR_MAX_BILLETS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU BILLET \n");
+        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU BILLET\n");
         break;
     case ERR_NUMFIL:
-        printf("ERREUR : NUMERO DE FIL INEXISTANT \n");
+        printf("ERREUR : NUMERO DE FIL INEXISTANT\n");
         break;
     default:
-        fprintf(stderr, "ERREUR : ERREUR INCONNUE \n");
+        fprintf(stderr, "ERREUR : ERREUR INCONNUE\n");
         exit(1);
     }
 
@@ -98,304 +121,247 @@ uint16_t create_header(uint8_t codereq_client) {
     return header_client;
 }
 
-void header_username_buffer(char *buf, uint16_t header_client, username_t username) {
-    memcpy(buf, &header_client, sizeof(header_client));
-        memcpy(buf + sizeof(header_client), username, strlen(username));
-        buf[sizeof(header_client) + strlen(username)] = '\0';
+static int get_server_addr(const char *hostname, const char *port, int *sock, struct sockaddr_in6 *addr) {
+    struct addrinfo hints, *r, *p;
+    int ret;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_V4MAPPED;
+
+    ret = getaddrinfo(hostname, port, &hints, &r);
+    if (ret != 0 || r == NULL) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+        return -1;
     }
 
-    static int get_server_addr(const char *hostname, const char *port, int *sock, struct sockaddr_in6 *addr) {
-        struct addrinfo hints, *r, *p;
-        int ret;
+    p = r;
+    while (p != NULL) {
+        if ((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0) {
+            if (connect(*sock, p->ai_addr, sizeof(struct sockaddr_in6)) == 0)
+                break;
 
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_INET6;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = AI_V4MAPPED;
-
-        ret = getaddrinfo(hostname, port, &hints, &r);
-        if (ret != 0 || r == NULL) {
-            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
-            return -1;
+            close(*sock);
         }
 
-        p = r;
-        while (p != NULL) {
-            if ((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0) {
-                if (connect(*sock, p->ai_addr, sizeof(struct sockaddr_in6)) == 0)
-                    break;
-
-                close(*sock);
-            }
-
-            p = p->ai_next;
-        }
-
-        if (p == NULL)
-            return -2;
-
-        if (addr != NULL) {
-            // on stocke l'adresse de connexion
-            memcpy(addr, p->ai_addr, sizeof(struct sockaddr_in6));
-        }
-
-        // on libère la mémoire allouée par getaddrinfo
-        freeaddrinfo(r);
-
-        return 0;
+        p = p->ai_next;
     }
 
-    int connexion_server(const char *hostname, const char *port) {
-        int sock;
-        struct sockaddr_in6 server_addr;
+    if (p == NULL)
+        return -2;
 
-        switch (get_server_addr(hostname, port, &sock, &server_addr)) {
-        case 0:
-            break;
-        case -1:
-            fprintf(stderr, "Erreur: hote non trouve.\n");
-            exit(1);
-        case -2:
-            fprintf(stderr, "Erreur: echec de creation de la socket.\n");
-            exit(1);
-        }
-
-        return sock;
+    if (addr != NULL) {
+        // on stocke l'adresse de connexion
+        memcpy(addr, p->ai_addr, sizeof(struct sockaddr_in6));
     }
 
-    int inscription_request(int sock) {
-        uint16_t header_client, header_serv, id_serv;
-        uint8_t codereq_serv;
-        username_t username;
-        char buf[SIZE_MESS];
+    // on libère la mémoire allouée par getaddrinfo
+    freeaddrinfo(r);
 
-        codereq_serv = REQ_INSCRIPTION;
+    return 0;
+}
 
-        header_client = create_header(codereq_serv);
+int connexion_server(const char *hostname, const char *port) {
+    int sock;
+    struct sockaddr_in6 server_addr;
 
-        demande_pseudo(username);
+    switch (get_server_addr(hostname, port, &sock, &server_addr)) {
+    case 0:
+        break;
+    case -1:
+        fprintf(stderr, "Erreur: hote non trouve.\n");
+        exit(1);
+    case -2:
+        fprintf(stderr, "Erreur: echec de creation de la socket.\n");
+        exit(1);
+    }
 
-        header_username_buffer(buf, header_client, username);
+    return sock;
+}
 
-        // ENVOI ENTETE + PSEUDO
-        send_message(sock, buf, sizeof(header_client) + USERNAME_LEN);
+int inscription_request(int sock) {
+    client_header_t header = {0};
+    header.codereq = REQ_INSCRIPTION;
+    header.id = 0;
 
-        // RECEPTION ENTETE + ID
-        recv_message(sock, buf, SIZE_MESS);
+    username_t username;
+    demande_pseudo(username);
 
-        if (error_request(buf) == 1) {
-            close(sock);
-            exit(5);
-        }
+    // ENVOI ENTETE + PSEUDO
+    int r = send_header(sock, header);
+    if (r < 0) return r;
+    r = send_raw(sock, username, USERNAME_LEN);
+    if (r < 0) return r;
 
-        // DECODAGE ENTETE + ID
-        memcpy(&header_serv, buf, sizeof(header_serv));
-        id_serv = ntohs(header_serv) >> 5;
-        codereq_serv = ntohs(header_serv) & 0x1F;
+    // RECEPTION ENTETE + ID
+    server_header_t response_header;
+    r = recv_header(sock, &response_header);
+    if (r < 0) return r;
 
-        printf("VOICI VOTRE ID : %d \n", id_serv);
+    printf("codereq: %d, id: %d\n", response_header.codereq, response_header.id);
 
+    if (error_request(response_header)) {
         close(sock);
-
-        return 0;
+        exit(5);
     }
 
-    int post_billet_request(int sock) {
-        uint16_t header, id, numfil, nb;
-        uint8_t codereq_client, lendata;
-        char data[SIZE_MESS];
-        memset(data, 0, SIZE_MESS);
+    printf("VOICI VOTRE ID : %d\n", response_header.id);
 
-        fflush(stdout);
-        printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
-        int r = scanf("%hu %hu", &id, &numfil);
-        if (r == EOF) {
-            perror("Erreur: ");
-        } else if (r != 2) {
-            fprintf(stderr, "Erreur : EOF");
-        }
+    close(sock);
 
-        if (id > MAX_VALUE_11BITS_INTEGER) {
-            fprintf(stderr, "Erreur : Cet identifiant ne peux pas exister.");
-            exit(1);
-        }
+    return 0;
+}
 
-        codereq_client = REQ_POST_BILLET;
-        nb = 0;
+int post_billet_request(int sock) {
+    printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
+    fflush(stdout);
 
-        fflush(stdout);
-        printf("ENTREZ VOTRE MESSAGE :\n");
-        getchar();
-        const char *r2 = fgets(data, SIZE_MESS, stdin);
-        if (r2 == NULL) {
-            fprintf(stderr, "Erreur : EOF\n");
-            exit(1);
-        }
+    uint16_t id, numfil;
+    int r = scanf("%hu %hu", &id, &numfil);
 
-        lendata = strlen(data) - 1;
+    if (r == EOF) {
+        perror("Erreur: ");
+    } else if (r != 2) {
+        fprintf(stderr, "Erreur : EOF\n");
+    }
 
-        char buf[SIZE_MESS * 2];
-        header = htons((id << 5) | (codereq_client & 0x1F));
-        numfil = htons(numfil);
-        nb = htons(nb);
+    if (id > MAX_VALUE_11BITS_INTEGER) {
+        fprintf(stderr, "Erreur : Cet identifiant ne peux pas exister.\n");
+        exit(1);
+    }
 
-        // CONSTRUCTION DE L'ENTETE
-        memcpy(buf, &header, sizeof(header));
-        memcpy(buf + sizeof(header), &numfil, sizeof(numfil));
-        memcpy(buf + sizeof(header) + sizeof(numfil), &nb, sizeof(nb));
-        memcpy(buf + sizeof(header) + sizeof(numfil) + sizeof(nb), &lendata,
-               sizeof(lendata));
-        memcpy(buf + sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata),
-               data, lendata);
+    client_header_t header = {0};
+    header.codereq = REQ_POST_BILLET;
+    header.id = id;
 
-        size_t size_buf =
-            sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata) + lendata;
+    printf("ENTREZ VOTRE MESSAGE : ");
+    getchar();
+    fflush(stdout);
 
-        // ENVOI DE LA REQUETE
-        send_message(sock, buf, size_buf);
+    char data[SIZE_MESS] = {0};
+    const char *r2 = fgets(data, SIZE_MESS, stdin);
+    if (r2 == NULL) {
+        fprintf(stderr, "Erreur : EOF\n");
+        exit(1);
+    }
 
-        // RECEPTION DE LA REPONSE
-        recv_message(sock, buf, SIZE_MESS * 2);
+    uint8_t lendata = strlen(data);
+    if (data[lendata - 1] == '\n') {
+        data[lendata - 1] = '\0';
+        lendata--;
+    }
+    printf("len: %d\n", lendata);
 
-        if (error_request(buf) == 1) {
-            close(sock);
-            exit(5);
-        }
+    // ENVOI DE LA REQUETE
+    r = send_header(sock, header);
+    if (r < 0) return r;
+    r = send_uint16(sock, numfil);
+    if (r < 0) return r;
+    r = send_uint16(sock, 0); // NB
+    if (r < 0) return r;
+    r = send_uint8(sock, lendata);
+    if (r < 0) return r;
+    r = send_raw(sock, data, lendata);
+    if (r < 0) return r;
 
-        // DECODAGE DE LA REPONSE
-        memcpy(&header, buf, sizeof(header));
-        memcpy(&numfil, buf + sizeof(header), sizeof(numfil));
-        memcpy(&nb, buf + sizeof(header) + sizeof(numfil), sizeof(nb));
-        id = ntohs(header) >> 5;
-        codereq_client = ntohs(header) & 0x1F;
-        numfil = ntohs(numfil);
+    // RECEPTION DE LA REPONSE
+    server_header_t response_header;
+    r = recv_header(sock, &response_header);
+    if (r < 0) return r;
 
-        // AFFICHAGE DE LA REPONSE
-        printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n", codereq_client, id,
-               numfil);
-
+    if (error_request(response_header)) {
         close(sock);
-
-        return 0;
+        exit(5);
     }
 
-    int get_billets_request(int sock) {
-        uint16_t header, id, numfil, nb;
-        uint8_t codereq, lendata;
+    // DECODAGE DE LA REPONSE
+    // AFFICHAGE DE LA REPONSE
+    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n",
+           response_header.codereq, response_header.id, response_header.numfil);
 
-        size_t sizebuf = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t);
-        char buf[sizebuf];
-        memset(buf, 0, sizebuf);
+    close(sock);
 
-        fflush(stdout);
-        printf("IDENTIFIANT, NUMERO DU FIL ET NB DE BILLETS : ");
-        int iduser, f, n;
-        int r = scanf("%d %d %d", &iduser, &f, &n);
-        if (r != 3) {
-            fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
-            exit(1);
-        }
+    return 0;
+}
 
-        if (iduser > MAX_VALUE_11BITS_INTEGER) {
-            fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
-            exit(1);
-        }
+int get_billets_request(int sock) {
+    uint16_t id, numfil, nb;
 
-        if (f < 0 || n < 0) {
-            fprintf(stderr, "Erreur : Les valeurs doivent être supérieures ou égales à zéro.\n");
-            exit(1);
-        }
+    printf("IDENTIFIANT, NUMERO DU FIL ET NB DE BILLETS : ");
+    fflush(stdout);
 
-        id = iduser;
-        numfil = f;
-        nb = n;
+    int r = scanf("%hu %hu %hu", &id, &numfil, &nb);
+    if (r < 3) {
+        fprintf(stderr, "Erreur : EOF\n");
+        return -1;
+    }
 
-        // CONTRUCTION ENTETE
-        codereq = REQ_GET_BILLET;
-        header = htons((id << 5) | (codereq & 0x1F));
-        numfil = htons(numfil);
-        nb = htons(nb);
+    if (id > MAX_VALUE_11BITS_INTEGER) {
+        fprintf(stderr, "Erreur : Cet identifiant ne peux pas exister.\n");
+        return -1;
+    }
 
-        // CONSTRUCTION DU BUFFER
-        char *ptr = buf;
-        memcpy(ptr, &header, sizeof(header));
-        ptr += sizeof(header);
-        memcpy(ptr, &numfil, sizeof(numfil));
-        ptr += sizeof(numfil);
-        memcpy(ptr, &nb, sizeof(nb));
+    // CONTRUCTION ENTETE
+    client_header_t header = {0};
+    header.codereq = REQ_GET_BILLET;
+    header.id = id;
 
-        // ENVOI DE LA REQUETE
-        send_message(sock, buf, sizebuf);
+    // ENVOI DE LA REQUETE
+    r = send_header(sock, header);
+    if (r < 0) return r;
 
-        // RECEPTION DE LA REPONSE
-        // REPONSE PEUT ÊTRE UNE ERREUR
-        recv_message(sock, buf, sizebuf);
+    r = send_uint16(sock, numfil);
+    if (r < 0) return r;
 
-        if (error_request(buf) == 1) {
-            close(sock);
-            exit(5);
-        }
+    r = send_uint16(sock, nb);
+    if (r < 0) return r;
 
-        // DECODAGE DE LA REPONSE
-        ptr = buf;
-        memcpy(&header, ptr, sizeof(header));
-        ptr += sizeof(header);
-        memcpy(&numfil, ptr, sizeof(numfil));
-        ptr += sizeof(numfil);
-        memcpy(&nb, ptr, sizeof(nb));
+    r = send_uint16(sock, 0); // lendata
+    if (r < 0) return r;
 
-        codereq = ntohs(header) & 0x1F;
-        id = ntohs(header) >> 5;
-        numfil = ntohs(numfil);
-        nb = ntohs(nb);
+    // RECEPTION DE LA REPONSE
+    server_header_t response_header;
+    recv_header(sock, &response_header);
 
-        // AFFICHAGE DE LA REPONSE
-        printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n",
-               codereq, id, numfil, nb);
+    if (error_request(response_header)) {
+        close(sock);
+        exit(5);
+    }
 
-        // RECEPTION DES BILLETS
-        size_t sizebillet = sizeof(uint16_t) // numfil
-                            + USERNAME_LEN * 2 // origin + pseudo
-                            + sizeof(uint8_t) // datalen
-                            + (SIZE_MESS + 1); // data
-        char billet[sizebillet];
-        char data[SIZE_MESS + 1];
+    // AFFICHAGE DE LA REPONSE
+    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n",
+           response_header.codereq, response_header.id, response_header.numfil, response_header.nb);
+
+    // RECEPTION DES BILLETS
+    for (int i = 0; i < nb; i++) {
+        uint16_t numfil;
+        r = recv_uint16(sock, &numfil);
+        if (r < 0) return r;
+
         username_t pseudo_fil;
+        r = recv_raw(sock, pseudo_fil, USERNAME_LEN);
+        if (r < 0) return r;
+
         username_t pseudo_billet;
+        r = recv_raw(sock, pseudo_billet, USERNAME_LEN);
+        if (r < 0) return r;
 
-        memset(billet, 0, sizebillet);
+        uint8_t lendata;
+        r = recv_uint8(sock, &lendata);
+        if (r < 0) return r;
 
-        int nb_billets = nb;
-        for (int i = 0; i < nb_billets; i++) {
-            memset(pseudo_fil, 0, USERNAME_LEN);
-            memset(pseudo_billet, 0, USERNAME_LEN);
-            memset(data, 0, SIZE_MESS + 1);
+        char data[lendata + 1];
+        memset(data, 0, lendata + 1);
+        r = recv_raw(sock, data, lendata);
+        if (r < 0) return r;
 
-            recv_message(sock, billet, sizebillet);
-
-            // DECODAGE DU BILLET
-            ptr = billet;
-            memcpy(&numfil, ptr, sizeof(numfil));
-            ptr += sizeof(numfil);
-            memcpy(pseudo_fil, ptr, USERNAME_LEN);
-            ptr += strlen(ptr) + 1;
-            memcpy(pseudo_billet, ptr, USERNAME_LEN);
-            ptr += strlen(ptr) + 1;
-            memcpy(&lendata, ptr, sizeof(lendata));
-            ptr += sizeof(lendata);
-            memcpy(data, ptr, strlen(ptr) + 1);
-            data[lendata] = '\0';
-
-            numfil = ntohs(numfil);
-
-            // AFFICHAGE DU BILLET
-            char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
-            char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
-            printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATA %s\n",
-                   i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, data);
-        }
-
-        close(sock);
-
-        return 0;
+        // AFFICHAGE DU BILLET
+        char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
+        char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
+        printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATALEN %d, DATA %s\n",
+               i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
     }
+
+    return 0;
+}

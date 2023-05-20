@@ -20,6 +20,9 @@ typedef enum {
     ERR_NUMFIL,
     // Type pour affichage billets
     ERR_NON_TYPE,
+
+    // TODO
+    ERR_TODO,
 } error_t;
 
 #endif

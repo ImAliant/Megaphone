@@ -5,6 +5,7 @@
 #include "error.h"
 #include "request.h"
 #include "users.h"
+#include "message.h"
 
 typedef enum {
     TYPE_ERROR,
@@ -19,15 +20,21 @@ typedef enum {
 } billet_type_t;
 
 // Requete d'inscription
-int inscription_request(int, char *, utilisateur[], int);
+int inscription_request(int, client_header_t, utilisateur[], int *);
 
 // Requete poster un billet
-int post_billet_request(int, char *, struct fils *, username_t);
+int post_billet_request(int, client_header_t, struct fils *, username_t);
 
 // Requete obtention des billets
-int get_billets_request(int, const char *, struct fils *);
+int get_billets_request(int, client_header_t, struct fils *);
 
 // Requete d'erreur
-void error_request(int, codereq_t, uint16_t, error_t);
+int error_request(int, codereq_t, uint16_t, error_t);
+
+// reçoit un header du client
+int recv_header(int sock, client_header_t *header);
+
+// envoie un header au client
+int send_header(int sock, server_header_t header);
 
 #endif

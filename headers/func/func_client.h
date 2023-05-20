@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 
+#include "message.h"
 #include "users.h"
 
 // Requete d'erreur
-int error_request(const char *);
+int error_request(server_header_t);
 // Suppression des caracteres invisibles
 void remove_special_chars(username_t);
 // Remplissage du pseudo par des #
