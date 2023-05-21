@@ -759,7 +759,7 @@ int dw_file_request(int sock) {
             exit(1);
         } else if (ready == 0) {
             printf("TIMEOUT UDP\n");
-            break;
+            exit(1);
         }
 
         recvfrom(sock_udp, buffer_udp, size, 0, (struct sockaddr *) &addr, &addr_len);
