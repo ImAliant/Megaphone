@@ -5,7 +5,8 @@
 
 #include "billet.h"
 
-static struct billet create_billet(uint16_t id, uint8_t lendata, const char *data, username_t username) {
+static struct billet create_billet(uint16_t id, uint8_t lendata,
+                                   const char *data, username_t username) {
     struct billet new_billet;
     new_billet.idClient = id;
     new_billet.len = lendata;
@@ -16,8 +17,8 @@ static struct billet create_billet(uint16_t id, uint8_t lendata, const char *dat
     return new_billet;
 }
 
-int add_billet(struct fils *fils, uint16_t numfil, uint16_t id,
-               uint8_t lendata, const char *data, username_t username) {
+int add_billet(struct fils *fils, uint16_t numfil, uint16_t id, uint8_t lendata,
+               const char *data, username_t username) {
     struct fil fil = fils->list_fil[numfil - 1];
 
     if (fil.nb_billet >= 100) {
@@ -32,7 +33,8 @@ int add_billet(struct fils *fils, uint16_t numfil, uint16_t id,
     return 0;
 }
 
-int create_fil(struct fils *fils, uint16_t id, uint8_t lendata, const char *data, username_t username) {
+int create_fil(struct fils *fils, uint16_t id, uint8_t lendata,
+               const char *data, username_t username) {
     if (fils->nb_fil >= 100) {
         return -1;
     }

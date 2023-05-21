@@ -47,7 +47,8 @@ static void *serve(void *arg) {
 
         // ENVOIE ENTETE ERREUR SI ID DIFFERENT DE 0 LORSQUE CODEREQ 1
         if (header.codereq == REQ_INSCRIPTION && header.id != 0) {
-            error_request(sock, header.codereq, header.id, ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
+            error_request(sock, header.codereq, header.id,
+                          ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE);
             return NULL;
         }
         // ENVOIE ENTETE ERREUR SI ID N'EXISTE PAS POUR LES AUTRES REQUETES
@@ -100,7 +101,8 @@ static void loop(int sock) {
 
     int sock_client;
     while ((sock_client = accept(sock, (struct sockaddr *)&addrclient, &size))) {
-        if (sock_client < 0) continue;
+        if (sock_client < 0)
+            continue;
 
         // on crée la variable sur le tas
         int *sock_client_stack = malloc(sizeof(int));
@@ -114,7 +116,8 @@ static void loop(int sock) {
         }
 
         char nom_dst[INET6_ADDRSTRLEN + 1] = {0};
-        const char *rs = inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, INET6_ADDRSTRLEN);
+        const char *rs =
+            inet_ntop(AF_INET6, &addrclient.sin6_addr, nom_dst, INET6_ADDRSTRLEN);
         if (rs == NULL) {
             strcpy(nom_dst, "<erreur>");
         }

@@ -3,9 +3,9 @@
 
 #include "billet.h"
 #include "error.h"
+#include "message.h"
 #include "request.h"
 #include "users.h"
-#include "message.h"
 
 typedef enum {
     TYPE_ERROR,

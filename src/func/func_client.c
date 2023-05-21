@@ -23,7 +23,6 @@ int recv_header(int sock, server_header_t *header) {
     uint16_t codereq_id;
     int r = recv_uint16(sock, &codereq_id);
     if (r < 0) return r;
-    codereq_id = codereq_id;
 
     header->codereq = codereq_id % (1 << 5);
     header->id = codereq_id >> 5;
@@ -49,9 +48,7 @@ int error_request(server_header_t header) {
         return 1;
     }
 
-    if (header.codereq > 0) {
-        return 0;
-    }
+    if (header.codereq > 0) return 0;
 
     switch (header.numfil) {
     case ERR_CODEREQ_UNKNOWN:
@@ -89,7 +86,7 @@ int error_request(server_header_t header) {
 void demande_pseudo(username_t username) {
     bool ok = false;
     char buf[BUFLEN];
-    while(!ok) {
+    while (!ok) {
         printf("Saisir votre pseudo: ");
         const char *r = fgets(buf, BUFLEN, stdin);
         if (r == NULL) {
@@ -108,7 +105,6 @@ void demande_pseudo(username_t username) {
         case USERNAME_EMPTY:
             break;
         }
-
     }
 
     printf("PSEUDO : %s\n", username_to_string(username, buf));
@@ -121,7 +117,8 @@ uint16_t create_header(uint8_t codereq_client) {
     return header_client;
 }
 
-static int get_server_addr(const char *hostname, const char *port, int *sock, struct sockaddr_in6 *addr) {
+static int get_server_addr(const char *hostname, const char *port, int *sock,
+                           struct sockaddr_in6 *addr) {
     struct addrinfo hints, *r, *p;
     int ret;
 
@@ -139,17 +136,14 @@ static int get_server_addr(const char *hostname, const char *port, int *sock, st
     p = r;
     while (p != NULL) {
         if ((*sock = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) > 0) {
-            if (connect(*sock, p->ai_addr, sizeof(struct sockaddr_in6)) == 0)
-                break;
-
+            if (connect(*sock, p->ai_addr, sizeof(struct sockaddr_in6)) == 0) break;
             close(*sock);
         }
 
         p = p->ai_next;
     }
 
-    if (p == NULL)
-        return -2;
+    if (p == NULL) return -2;
 
     if (addr != NULL) {
         // on stocke l'adresse de connexion
@@ -277,8 +271,8 @@ int post_billet_request(int sock) {
 
     // DECODAGE DE LA REPONSE
     // AFFICHAGE DE LA REPONSE
-    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n",
-           response_header.codereq, response_header.id, response_header.numfil);
+    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n", response_header.codereq,
+           response_header.id, response_header.numfil);
 
     close(sock);
 
@@ -331,7 +325,8 @@ int get_billets_request(int sock) {
 
     // AFFICHAGE DE LA REPONSE
     printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n",
-           response_header.codereq, response_header.id, response_header.numfil, response_header.nb);
+           response_header.codereq, response_header.id, response_header.numfil,
+           response_header.nb);
 
     // RECEPTION DES BILLETS
     for (int i = 0; i < nb; i++) {
@@ -357,8 +352,10 @@ int get_billets_request(int sock) {
         if (r < 0) return r;
 
         // AFFICHAGE DU BILLET
-        char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
-        char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
+        char buf_pseudo_fil[USERNAME_LEN + 1];
+        username_to_string(pseudo_fil, buf_pseudo_fil);
+        char buf_pseudo_billet[USERNAME_LEN + 1];
+        username_to_string(pseudo_billet, buf_pseudo_billet);
         printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATALEN %d, DATA %s\n",
                i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, lendata, data);
     }

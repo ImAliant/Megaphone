@@ -29,8 +29,10 @@ username_error string_to_username(const char *str, username_t username) {
     }
 
     for (; str[i]; i++) {
-        if (isprint(str[i]) && !isspace(str[i])) return USERNAME_TOO_LONG;
+        if (isprint(str[i]) && !isspace(str[i]))
+            return USERNAME_TOO_LONG;
     }
+
     if (j == 0) return USERNAME_EMPTY;
 
     for (size_t i = j; i < 10; i++) {
