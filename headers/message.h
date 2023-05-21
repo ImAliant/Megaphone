@@ -4,14 +4,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "request.h"
+
 typedef struct {
-    uint8_t codereq; // limité à 5 bits
-    uint16_t id;     // limité à 11 bits
+    codereq_t codereq;
+    uint16_t id; // limité à 11 bits
 } client_header_t;
 
 typedef struct {
-    uint8_t codereq; // limité à 5 bits
-    uint16_t id;     // limité à 11 bits
+    codereq_t codereq;
+    uint16_t id; // limité à 11 bits
     uint16_t numfil;
     uint16_t nb;
 } server_header_t;
