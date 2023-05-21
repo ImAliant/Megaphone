@@ -29,5 +29,7 @@ int get_billets_request(int);
 int add_file_request(int);
 // Requete telechargement d'un fichier
 int dw_file_request(int);
+// Requete d'abonnement
+int subscribe_request(int);
 
 #endif
