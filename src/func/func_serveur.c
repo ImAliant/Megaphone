@@ -423,3 +423,64 @@ int get_billets_request(int sock_client, char *buf, struct fils *fils) {
 
     return 0;
 }
+
+
+int subscribe_request(int sock_client, char *buf,int port) {
+    // TRADUCTION DU MESSAGE DU CLIENT
+    uint16_t header, id, numfil, nb,addr_MD;
+    uint8_t codereq, lendata;
+    char data[SIZE_MESS+1];
+    memset(data, 0, SIZE_MESS);
+
+    // RECUPERATION DE L'ENTETE
+    memcpy(&header, buf, sizeof(uint16_t));
+    memcpy(&numfil, buf+sizeof(uint16_t), sizeof(uint16_t));
+    memcpy(&nb, buf+sizeof(uint16_t)*2, sizeof(uint16_t));
+    memcpy(&lendata, buf+sizeof(uint16_t)*3, sizeof(uint8_t));
+    memcpy(data, buf+sizeof(uint16_t)*3+sizeof(uint8_t), lendata);
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    // AFFICHAGE DU MESSAGE DU CLIENT
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s\n", codereq, id, numfil, nb, lendata, data);
+
+    int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
+    if(sock_udp < 0){
+        perror("creation socket");
+        exit(1);
+    }
+    char addr_fil_str[INET6_ADDRSTRLEN];
+    strcpy(addr_fil_str, "ff02::");
+    snprintf(addr_fil_str,"%u",numfil);
+    //initialiser l'addresse multicast 
+    struct sockaddr_in6 grp;
+    memset(&grp, 0, sizeof(grp));
+    grp.sin6_family = AF_INET6;
+    grp.sin6_port = htons(port);
+    inet_pton(AF_INET6, addr_fil_str, &grp.sin6_addr);
+    int ifindex = 0; //interface par defaut
+    if(setsockopt(sock_udp, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)))
+        {
+            perror("erreur initialisation de l’interface locale");
+        }
+
+
+// REPONSE AU CLIENT
+    codereq = REQ_POST_BILLET;
+    header = htons((id << 5) | (codereq & 0x1F));
+    numfil = htons(numfil);
+    nb = htons(0);
+    addr_MD=htonl(grp.sin6_addr.s6_addr32[3]);
+
+    memset(buf, 0, SIZE_MESS*2);
+    memcpy(buf, &header, sizeof(uint16_t));
+    memcpy(buf+sizeof(uint16_t), &numfil, sizeof(uint16_t));
+    memcpy(buf+sizeof(uint16_t)*2, &nb, sizeof(uint16_t));
+    memcpy(buf+sizeof(uint16_t)*3, &addr_MD, sizeof(uint16_t));
+    recv_send_message(sock_client, buf, sizeof(uint16_t)*4, SEND);
+
+    return 0;
+}

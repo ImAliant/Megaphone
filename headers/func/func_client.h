@@ -23,5 +23,7 @@ int inscription_request(char *, char *);
 int post_billet_request(char *, char *);
 // Requete obtention des billets
 int get_billets_request(char *, char *);
+// Requete d'abonnement
+int subscribe_request(char *, char *);
 
 #endif

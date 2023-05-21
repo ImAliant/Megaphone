@@ -352,3 +352,104 @@ int get_billets_request(char *hostname, char *port) {
 
     return 0;
 }
+
+int subscribe_request(char *hostname, char *port){
+     int sock;
+    uint16_t header, id, numfil, nb,addr_Multicast;
+    uint8_t codereq_client, lendata;
+    char data[SIZE_MESS];
+    
+
+    fflush(stdout);
+    printf("Entrez l'ID et le numero de fil : ");
+    scanf("%hd %hd",&id,&numfil);
+
+    if (id > MAX_VALUE_11BITS_INTEGER) {
+        perror("Erreur : Cette identifiant ne peux pas exister.");
+        exit(1);
+    }
+
+    if (numfil < 0) {
+        perror("Erreur : Ce numéro de fil ne peux pas exister.");
+        exit(1);
+    }
+
+    codereq_client = REQ_SUBSCRIBE;
+    nb = 0;
+
+    fflush(stdout);
+    
+
+    lendata = 0;
+
+    char buf[SIZE_MESS*4];
+    header = htons((id << 5) | (codereq_client & 0x1F));
+    numfil = htons(numfil);
+    nb = htons(nb);
+
+    // CONSTRUCTION DE L'ENTETE
+    memcpy(buf, &header, sizeof(header));
+    memcpy(buf+sizeof(header), &numfil, sizeof(numfil));
+    memcpy(buf+sizeof(header)+sizeof(numfil), &nb, sizeof(nb));
+    memcpy(buf+sizeof(header)+sizeof(numfil)+sizeof(nb), &lendata, sizeof(lendata));
+    memcpy(buf+sizeof(header)+sizeof(numfil)+sizeof(nb)+sizeof(lendata), data, lendata);
+    size_t sizebuf = sizeof(header)+sizeof(numfil)+sizeof(nb)+sizeof(lendata)+lendata;
+    // ENVOI DE LA REQUETE
+    recv_send_message(sock, buf, sizebuf, SEND);
+
+    // RECEPTION DE LA REPONSE
+   
+    recv_send_message(sock, buf, sizebuf, RECV);
+
+    if (error_request(buf) == 1) {
+        close(sock);
+        exit(5);
+    }
+
+    memcpy(&header, buf, sizeof(header));
+    memcpy(&numfil, buf+sizeof(header), sizeof(numfil));
+    memcpy(&nb, buf+sizeof(header)+sizeof(numfil), sizeof(nb));
+    id = ntohs(header) >> 5;
+    codereq_client = ntohs(header) & 0x1F;
+    numfil = ntohs(numfil);
+    addr_Multicast = ntohs(addr_Multicast);
+    // AFFICHAGE DE LA REPONSE
+    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd,ADDRMLD %hd\n", codereq_client, id, numfil,addr_Multicast);
+
+    char addr_Multicast_str[INET6_ADDRSTRLEN];
+    snprintf(addr_Multicast_str,"%u", addr_Multicast);
+    // abonnement au groupe multicast
+    struct sockaddr_in6 grsock;
+    memset(&grsock, 0, sizeof(grsock));
+    grsock.sin6_family = AF_INET6;
+    grsock.sin6_addr = in6addr_any;
+    grsock.sin6_port = htons(atoi(port));
+
+    int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
+    if(sock_udp < 0) 
+    {
+        perror("erreur socket");
+        exit(1);
+    }
+    // pour l'envoi de messages(notifications) en multicast 
+    if(bind(sock_udp, (struct sockaddr*)&grsock, sizeof(grsock))) 
+    {
+        perror("erreur bind");
+        exit(1);
+    } 
+    struct ipv6_mreq mreq;
+    mreq.ipv6mr_interface = 0;
+    inet_pton(AF_INET6, addr_Multicast_str, &mreq.ipv6mr_multiaddr.s6_addr);
+    if(setsockopt(sock_udp, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0) 
+    {
+        perror("erreur abonnement groupe ");
+    
+    }
+
+    close(sock);
+    close(sock_udp);
+
+    return 0;
+
+
+}

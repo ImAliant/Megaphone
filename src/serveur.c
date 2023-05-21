@@ -19,7 +19,7 @@
 #define SIZE_MESS 200
 #define MAX_USERS 100
 #define USERNAME_LEN 10
-
+int port;
 struct fils *fils;
 int nb_utilisateurs = 0;
 
@@ -81,8 +81,8 @@ void *serve(void *arg) {
             r = get_billets_request(sock, buf, fils);
             break;
         case REQ_SUBSCRIBE:
-            /*r = subscribe_request();
-            break;*/
+            r = subscribe_request(sock,buf,port);
+            break;
         case REQ_ADD_FILE:
             /*r = add_file_request();
             break;*/
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     fils = malloc(sizeof(struct fils));
     fils->nb_fil = 0;
 
-    int port, sock;
+    int sock;
     struct sockaddr_in6 address_sock;
     memset(&address_sock, 0, sizeof(address_sock));
     
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     listen_port(sock);
 
     loop(sock);
-
+  
     close(sock);
 
     free(fils);
