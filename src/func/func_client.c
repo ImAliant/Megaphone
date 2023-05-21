@@ -25,8 +25,8 @@ int recv_header(int sock, server_header_t *header) {
     if (r < 0) return r;
     codereq_id = codereq_id;
 
-    header->codereq = codereq_id >> 11;
-    header->id = codereq_id % (1 << 11);
+    header->codereq = codereq_id % (1 << 5);
+    header->id = codereq_id >> 5;
 
     r = recv_uint16(sock, &header->numfil);
     if (r < 0) return r;
@@ -37,8 +37,8 @@ int recv_header(int sock, server_header_t *header) {
 int send_header(int sock, client_header_t header) {
     uint16_t buf = 0;
 
-    buf |= header.codereq << 11;
-    buf |= header.id % (1 << 12);
+    buf |= header.codereq % (1 << 5);
+    buf |= header.id << 5;
 
     return send_uint16(sock, buf);
 }

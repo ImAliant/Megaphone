@@ -26,8 +26,8 @@ int recv_header(int sock, client_header_t *header) {
 
     memset(header, 0, sizeof(client_header_t));
 
-    header->codereq = buf >> 11;
-    header->id = buf % (1 << 11);
+    header->codereq = buf % (1 << 5);
+    header->id = buf >> 5;
 
     return 0;
 }
