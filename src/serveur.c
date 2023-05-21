@@ -18,9 +18,9 @@
 
 #define SIZE_MESS 200
 #define MAX_USERS 100
-#define USERNAME_LEN 10
-int port;
-struct fils *fils;
+#define ADD_PORT_UDP 1263
+
+
 int nb_utilisateurs = 0;
 
 utilisateur liste[MAX_USERS];
@@ -75,23 +75,22 @@ void *serve(void *arg) {
                 }
             }
 
-            r = post_billet_request(sock, buf, fils, username);
-            break;
-        case REQ_GET_BILLET:
-            r = get_billets_request(sock, buf, fils);
-            break;
-        case REQ_SUBSCRIBE:
-            r = subscribe_request(sock,buf,port);
-            break;
-        case REQ_ADD_FILE:
-            /*r = add_file_request();
-            break;*/
-        case REQ_DW_FILE:
-            /*r = download_file_request();*/
-            break;
-        default:
-            error_request(sock, codereq, id, ERR_CODEREQ_UNKNOWN);
-            break;
+        post_billet_request(sock_client, buf, &fils, username);
+        break;
+    case REQ_GET_BILLET:
+        get_billets_request(sock_client, buf, &fils);
+        break;
+    case REQ_SUBSCRIBE:
+        subscribe_request(sock_client,buf);
+    case REQ_ADD_FILE:
+        add_file_request(sock_client, buf, &fils, sock_udp, port_udp, addr, username);
+        break;
+    case REQ_DW_FILE:
+        dw_file_request(sock_client, buf, &fils);
+        break;
+    default:
+        error_request(sock_client, codereq, id, ERR_CODEREQ_UNKNOWN);
+        break;
     }
 
     close(sock);

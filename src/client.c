@@ -39,7 +39,10 @@ void request(char *buf, char *argv[]) {
         get_billets_request(hostname, port);
         break;
     case REQ_SUBSCRIBE:
-        subscribe_request(hostname,port);
+      subscribe_request(sock);
+        break;
+    case REQ_ADD_FILE:
+        add_file_request(sock);
         break;
     case REQ_ADD_FILE:
         /*add_file_request();
