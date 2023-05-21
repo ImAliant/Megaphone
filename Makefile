@@ -3,7 +3,7 @@ SRC = src
 HEADERS = headers
 
 CC ?= gcc
-CFLAGS = -Wall -Wextra -Wpedantic -I$(HEADERS)
+CFLAGS = -Wall -pthread -Wextra -Wpedantic -I$(HEADERS)
 
 ALL = client serveur
 
