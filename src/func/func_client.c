@@ -169,17 +169,14 @@ int connexion_server(const char *hostname, const char *port) {
     return sock;
 }
 
-int inscription_request(int sock) {
+int inscription_request(int sock, username_t username) {
     uint16_t header_client, header_serv, id_serv;
     uint8_t codereq_serv;
-    username_t username;
     char buf[SIZE_MESS];
 
     codereq_serv = REQ_INSCRIPTION;
 
     header_client = create_header(codereq_serv);
-
-    demande_pseudo(username);
 
     header_username_buffer(buf, header_client, username);
 
@@ -190,8 +187,7 @@ int inscription_request(int sock) {
     recv_message(sock, buf, SIZE_MESS);
 
     if (error_request(buf) == 1) {
-        close(sock);
-        exit(5);
+        return -1;
     }
 
     // DECODAGE ENTETE + ID
@@ -199,31 +195,22 @@ int inscription_request(int sock) {
     id_serv = ntohs(header_serv) >> 5;
     codereq_serv = ntohs(header_serv) & 0x1F;
 
-    printf("VOICI VOTRE ID : %d \n", id_serv);
-
-    close(sock);
-
-    return 0;
+    return id_serv;
 }
 
-int post_billet_request(int sock) {
-    uint16_t header, id, numfil, nb;
+int post_billet_request(int sock, uint16_t id) {
+    uint16_t header, numfil, nb;
     uint8_t codereq_client, lendata;
     char data[SIZE_MESS];
     memset(data, 0, SIZE_MESS);
 
     fflush(stdout);
-    printf("IDENTIFIANT ET NUM FIL (0 pour en créer un nouveau) : ");
-    int r = scanf("%hu %hu", &id, &numfil);
+    printf("NUM FIL (0 pour en créer un nouveau) : ");
+    int r = scanf("%hu", &numfil);
     if (r == EOF) {
         perror("Erreur: ");
-    } else if (r != 2) {
+    } else if (r != 1) {
         fprintf(stderr, "Erreur : EOF");
-    }
-
-    if (id > MAX_VALUE_11BITS_INTEGER) {
-        fprintf(stderr, "Erreur : Cet identifiant ne peux pas exister.");
-        exit(1);
     }
 
     codereq_client = REQ_POST_BILLET;
@@ -264,8 +251,7 @@ int post_billet_request(int sock) {
     recv_message(sock, buf, SIZE_MESS * 2);
 
     if (error_request(buf) == 1) {
-        close(sock);
-        exit(5);
+        return -1;
     }
 
     // DECODAGE DE LA REPONSE
@@ -280,13 +266,11 @@ int post_billet_request(int sock) {
     printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n", codereq_client, id,
            numfil);
 
-    close(sock);
-
     return 0;
 }
 
-int get_billets_request(int sock) {
-    uint16_t header, id, numfil, nb;
+int get_billets_request(int sock, uint16_t id) {
+    uint16_t header, numfil, nb;
     uint8_t codereq, lendata;
 
     size_t sizebuf = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t);
@@ -294,16 +278,11 @@ int get_billets_request(int sock) {
     memset(buf, 0, sizebuf);
 
     fflush(stdout);
-    printf("IDENTIFIANT, NUMERO DU FIL ET NB DE BILLETS : ");
-    int iduser, f, n;
-    int r = scanf("%d %d %d", &iduser, &f, &n);
+    printf("NUMERO DU FIL ET NB DE BILLETS : ");
+    int f, n;
+    int r = scanf("%d %d", &f, &n);
     if (r != 3) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
-        exit(1);
-    }
-
-    if (iduser > MAX_VALUE_11BITS_INTEGER) {
-        fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
         exit(1);
     }
 
@@ -312,7 +291,6 @@ int get_billets_request(int sock) {
         exit(1);
     }
 
-    id = iduser;
     numfil = f;
     nb = n;
 
@@ -338,8 +316,7 @@ int get_billets_request(int sock) {
     recv_message(sock, buf, sizebuf);
 
     if (error_request(buf) == 1) {
-        close(sock);
-        exit(5);
+        return -1;
     }
 
     // DECODAGE DE LA REPONSE
@@ -401,30 +378,21 @@ int get_billets_request(int sock) {
                 i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, data);
     }
 
-    close(sock);
-
     return 0;
 }
 
-int subscribe_request(int sock){
-     
-    uint16_t header, id, numfil, nb,addr_Multicast;
+int subscribe_request(int sock, uint16_t id){
+
+    uint16_t header, numfil, nb,addr_Multicast;
     uint8_t codereq_client, lendata;
     char data[SIZE_MESS];
-    
 
     fflush(stdout);
-    printf("Entrez l'ID et le numero de fil : ");
-    scanf("%hd %hd",&id,&numfil);
-
-    if (id > MAX_VALUE_11BITS_INTEGER) {
-        perror("Erreur : Cette identifiant ne peux pas exister.");
-        exit(1);
-    }
-
-    if (numfil < 0) {
-        perror("Erreur : Ce numéro de fil ne peux pas exister.");
-        exit(1);
+    printf("Entrez le numero de fil : ");
+    int r = scanf("%hu", &numfil);
+    if (r != 1) {
+        fprintf(stderr, "Erreur: EOF\n");
+        return -1;
     }
 
     codereq_client = REQ_SUBSCRIBE;
@@ -451,8 +419,7 @@ int subscribe_request(int sock){
     recv_message(sock, buf, sizebuf);
 
     if (error_request(buf) == 1) {
-        close(sock);
-        exit(5);
+        return -1;
     }
 
     memcpy(&header, buf, sizeof(header));
@@ -467,7 +434,7 @@ int subscribe_request(int sock){
     printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd,ADDRMLD %hd\n", codereq_client, id, numfil,addr_Multicast);
 
     char addr_Multicast_str[INET6_ADDRSTRLEN];
-    snprintf(addr_Multicast_str,"%u", addr_Multicast);
+    snprintf(addr_Multicast_str, INET6_ADDRSTRLEN, "%u", addr_Multicast);
     // abonnement au groupe multicast
     struct sockaddr_in6 grsock;
     memset(&grsock, 0, sizeof(grsock));
@@ -476,51 +443,47 @@ int subscribe_request(int sock){
     grsock.sin6_port = htons(PORT_MD);
 
     int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
-    if(sock_udp < 0) 
+    if(sock_udp < 0)
     {
         perror("erreur socket");
         exit(1);
     }
-    // pour l'envoi de messages(notifications) en multicast 
-    if(bind(sock_udp, (struct sockaddr*)&grsock, sizeof(grsock))) 
+    // pour l'envoi de messages(notifications) en multicast
+    if(bind(sock_udp, (struct sockaddr*)&grsock, sizeof(grsock)))
     {
         perror("erreur bind");
         exit(1);
-    } 
+    }
     struct ipv6_mreq mreq;
     mreq.ipv6mr_interface = 0;
     inet_pton(AF_INET6, addr_Multicast_str, &mreq.ipv6mr_multiaddr.s6_addr);
-    if(setsockopt(sock_udp, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0) 
+    if(setsockopt(sock_udp, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0)
     {
         perror("erreur abonnement groupe ");
-    
+
     }
 
-    close(sock);
     close(sock_udp);
 
     return 0;
 }
 
-int add_file_request(int sock) {
-    uint16_t header, id, numfil, nb, numbloc;
+int add_file_request(int sock, uint16_t id) {
+    uint16_t header, numfil, nb, numbloc;
     uint8_t codereq, lendata;
-    int iduser, f;
+    int f;
     char data[256];
-    char filename[256];
+    char filename[257];
 
     fflush(stdout);
-    printf("IDENTIFIANT, NUMERO DU FIL, NOM DU FICHIER : ");
+    printf("NUMERO DU FIL, NOM DU FICHIER : ");
 
-    int r = scanf("%d %d %256s", &iduser, &f, filename);
+    int r = scanf("%d %256s", &f, filename);
     if (r != 3) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }
-    if (iduser > MAX_VALUE_11BITS_INTEGER) {
-        fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
-        exit(1);
-    }
+
     if (f < 0) {
         fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à zéro.\n");
         exit(1);
@@ -546,7 +509,6 @@ int add_file_request(int sock) {
 
     // ENTETE
     codereq = REQ_ADD_FILE;
-    id = iduser;
     numfil = f;
 
     header = htons((id << 5) | (codereq & 0x1F));
@@ -583,9 +545,6 @@ int add_file_request(int sock) {
 
     nb = ntohs(nb);
 
-    // DECONNEXION SERVER TCP
-    close(sock);
-
     // SOCKET CLIENT UDP
     int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
     if (sock_udp < 0) {
@@ -615,7 +574,11 @@ int add_file_request(int sock) {
 
     for (int i = 0; i < nb_paquets; i++) {
         memset(paquet, 0, SIZE_PAQUET);
-        fread(paquet, 1, SIZE_PAQUET, file);
+        int r = fread(paquet, 1, SIZE_PAQUET, file);
+        if (r < 1) {
+            fprintf(stderr, "Erreur: EOF\n");
+            return -1;
+        }
 
         ptr = buffer_udp;
         memcpy(ptr, &header, sizeof(header));
@@ -637,25 +600,22 @@ int add_file_request(int sock) {
     return 0;
 }
 
-int dw_file_request(int sock) {
-    uint16_t header, id, numfil, nb, numbloc;
+int dw_file_request(int sock, uint16_t id) {
+    uint16_t header, numfil, nb, numbloc;
     uint8_t codereq, lendata;
-    int iduser, f;
-    char filename[SIZE_FILENAME];
+    int f;
+    char filename[SIZE_FILENAME + 1];
     char data[SIZE_FILENAME];
 
     fflush(stdout);
-    printf("IDENTIFIANT, NUMERO DU FIL, NOM DU FICHIER : ");
+    printf("NUMERO DU FIL, NOM DU FICHIER : ");
 
-    int r = scanf("%d %d %256s", &iduser, &f, filename);
+    int r = scanf("%d %256s", &f, filename);
     if (r != 3) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }
-    if (iduser > MAX_VALUE_11BITS_INTEGER) {
-        fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
-        exit(1);
-    }
+
     if (f < 1) {
         fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à 1.\n");
         exit(1);
@@ -684,7 +644,6 @@ int dw_file_request(int sock) {
 
     // ENTETE
     codereq = REQ_DW_FILE;
-    id = iduser;
     numfil = f;
     header = htons((id << 5) | (codereq & 0x1F));
     numfil = htons(numfil);
@@ -733,9 +692,6 @@ int dw_file_request(int sock) {
 
     recv_message(sock, buf, sizebuf);
 
-    // LE CLIENT SE DECONNECTE DU SERVEUR
-    close(sock);
-
     // RECEPTION DES PAQUETS UDP
     size_t size_all = MAX_FILE_SIZE;
     char *all_paquets = malloc(size_all);
@@ -749,7 +705,7 @@ int dw_file_request(int sock) {
     FD_ZERO(&readset);
     FD_SET(sock_udp, &readset);
 
-    while (1) { 
+    while (1) {
         memset(buffer_udp, 0, size);
 
         ready = select(sock_udp + 1, &readset, NULL, NULL, &tv);

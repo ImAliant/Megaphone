@@ -20,16 +20,16 @@ void header_username_buffer(char *, uint16_t, username_t);
 // Connexion au serveur
 int connexion_server(const char *, const char *);
 // Requete d'inscription
-int inscription_request(int);
+int inscription_request(int, username_t);
 // Requete poster un billet
-int post_billet_request(int);
+int post_billet_request(int, uint16_t);
 // Requete obtention des billets
-int get_billets_request(int);
+int get_billets_request(int, uint16_t);
 // Requete ajout d'un fichier
-int add_file_request(int);
+int add_file_request(int, uint16_t);
 // Requete telechargement d'un fichier
-int dw_file_request(int);
+int dw_file_request(int, uint16_t);
 // Requete d'abonnement
-int subscribe_request(int);
+int subscribe_request(int, uint16_t);
 
 #endif

@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,45 +10,86 @@
 #include "func/func_client.h"
 #include "request.h"
 
-#define SIZE_MESS 200
+#define BUF_SIZE 200
 
-static void request(int sock) {
-    printf("CHOIX REQUETE :\n"
-           "<2> POST BILLET\n"
-           "<3> DEMANDER N BILLETS\n"
-           "<4> ABONNEMENTS FIL\n"
-           "<5> AJOUTER UN FICHIER\n"
-           "<6> TELECHARGER UN FICHIER\n");
+static int ask(const char *question, char *answer_buf, size_t size) {
+    printf("%s> ", question);
 
-    char buf[SIZE_MESS + 1] = {0};
-    const char *r = fgets(buf, SIZE_MESS, stdin);
-    if (r == NULL) {
-        fprintf(stderr, "Erreur : EOF\n");
-        exit(1);
+    char *r = fgets(answer_buf, size, stdin);
+    if (r == NULL) exit(0); // EOF
+
+    printf("\n");
+
+    return 0;
+}
+
+static void loop(int sock, uint16_t id) {
+    bool quit = false;
+    while (!quit) {
+        char buf[BUF_SIZE];
+        ask("[P]ost billet\n"
+            "[D]emander N billets\n"
+            "a[B]onnements fil\n"
+            "[A]jouter un fichier\n"
+            "[T]elecharger un fichier\n"
+            "[Q]uitter\n",
+            buf, BUF_SIZE);
+
+        char c = buf[0];
+        if (c == 'p' || c == 'P') {
+            post_billet_request(sock, id);
+        } else if (c == 'd' || c == 'D') {
+            get_billets_request(sock, id);
+        } else if (c == 'b' || c == 'B') {
+            subscribe_request(sock, id);
+        } else if (c == 'a' || c == 'A') {
+            add_file_request(sock, id);
+        } else if (c == 't' || c == 'T') {
+            dw_file_request(sock, id);
+        } else if (c == 'q' || c == 'Q') {
+            quit = true;
+        }
     }
+}
 
-    codereq_t codereq_client = atoi(buf);
+static int inscription(int sock) {
+    char buf[BUF_SIZE];
 
-    switch (codereq_client) {
-    case REQ_POST_BILLET:
-        post_billet_request(sock);
-        break;
-    case REQ_GET_BILLET:
-        get_billets_request(sock);
-        break;
-    case REQ_SUBSCRIBE:
-        subscribe_request(sock);
-        break;
-    case REQ_ADD_FILE:
-        add_file_request(sock);
-        break;
-    case REQ_DW_FILE:
-        dw_file_request(sock);
-        break;
-    default:
-        fprintf(stderr, "ERREUR : Requete inconnue");
-        exit(1);
-    }
+    username_t username;
+    username_error r;
+    do {
+        ask("Nom d'utilisateur ", buf, BUF_SIZE);
+        r = string_to_username(buf, username);
+
+        if (r == USERNAME_EMPTY) {
+            fprintf(stderr, "Nom d'utilisateur vide.\n");
+        } else if (r == USERNAME_TOO_LONG) {
+            fprintf(stderr, "Nom d'utilisateur limité a 10 charactères.\n");
+        }
+    } while (r != USERNAME_OK);
+
+    u_int16_t id = inscription_request(sock, username);
+
+    printf("Identifiant: %d\n", id);
+
+    return id;
+}
+
+static int connexion() {
+    char buf[BUF_SIZE];
+
+    int n;
+    do {
+        ask("Identifiant ", buf, BUF_SIZE);
+
+        n = atoi(buf);
+
+        if (n < 0 || n >= (1 << 11)) {
+            fprintf(stderr, "Identifiant invalide\n");
+        }
+    } while(1);
+
+    return n;
 }
 
 int main(int argc, const char *argv[]) {
@@ -60,25 +102,21 @@ int main(int argc, const char *argv[]) {
     const char *port = argv[2];
     int sock = connexion_server(hostname, port);
 
-    printf("ÊTES-VOUS INSCRIT ? (o/n) :\n");
-    char buf[SIZE_MESS];
-    memset(buf, 0, SIZE_MESS);
-    const char *r = fgets(buf, SIZE_MESS, stdin);
-    if (r == NULL) {
-        fprintf(stderr, "Erreur : EOF\n");
-        exit(1);
-    }
+    uint16_t id = 0;
+    do {
+        char buf[BUF_SIZE] = {0};
+        ask("[I]nscription\n"
+            "[C]onnexion\n",
+            buf, BUF_SIZE);
 
-    buf[strlen(buf) - 1] = '\0';
+        char c = buf[0];
+        if (c == 'i' || c == 'I') {
+            id = inscription(sock);
+        } else if (c == 'c' || c == 'C') {
+            id = connexion();
+        }
+    } while(id == 0);
 
-    if (strcmp(buf, "o") != 0 && strcmp(buf, "n") != 0) {
-        printf("ERREUR : Veuillez saisir 'o' ou 'n' \n");
-        exit(1);
-    }
-
-    if (strcmp(buf, "o") == 0) {
-        request(sock);
-    } else {
-        inscription_request(sock);
-    }
+    loop(sock, id);
+    close(sock);
 }

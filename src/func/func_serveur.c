@@ -245,10 +245,10 @@ static void send_billet(int sock, fils_t *fils, uint16_t numfil,
                        int pos_billet) {
     int type = fils->list_fil[numfil].billets[pos_billet].type;
 
-    uint8_t lendata;
+    uint8_t lendata = 0;
     char pseudo_fil[USERNAME_LEN];
     char pseudo_billet[USERNAME_LEN];
-    char *data;
+    char *data = NULL;
     if (type == MESSAGE)
         data = malloc(SIZE_MESS + 1);
     else if (type == FICHIER)
@@ -447,7 +447,7 @@ int get_billets_request(int sock_client, const char *buf, fils_t *fils) {
 
 int subscribe_request(int sock_client, char *buf) {
     // TRADUCTION DU MESSAGE DU CLIENT
-    uint16_t header, id, numfil, nb,addr_MD;
+    uint16_t header, id, numfil, nb, addr_MD = 0;
     uint8_t codereq, lendata;
     char data[SIZE_MESS+1];
     memset(data, 0, SIZE_MESS);
@@ -474,8 +474,8 @@ int subscribe_request(int sock_client, char *buf) {
     }
     char addr_fil_str[INET6_ADDRSTRLEN];
     strcpy(addr_fil_str, "ff02::");
-    snprintf(addr_fil_str,"%u",numfil);
-    //initialiser l'addresse multicast 
+    snprintf(addr_fil_str, INET6_ADDRSTRLEN, "%u", numfil);
+    //initialiser l'addresse multicast
     struct sockaddr_in6 grp;
     memset(&grp, 0, sizeof(grp));
     grp.sin6_family = AF_INET6;
@@ -493,7 +493,7 @@ int subscribe_request(int sock_client, char *buf) {
     header = htons((id << 5) | (codereq & 0x1F));
     numfil = htons(numfil);
     nb = htons(0);
-    
+
 
     memset(buf, 0, SIZE_MESS*2);
     memcpy(buf, &header, sizeof(uint16_t));
@@ -506,8 +506,8 @@ int subscribe_request(int sock_client, char *buf) {
 }
 
 
-int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp, 
-                int port_udp, struct sockaddr_in6 addr_udp, username_t username) {
+int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
+                     int port_udp, struct sockaddr_in6 addr_udp, username_t username) {
     uint16_t header, id, numfil, nb, numbloc;
     uint8_t codereq, lendata;
     char data[SIZE_FILENAME];
@@ -576,7 +576,7 @@ int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
     tv.tv_sec = timeout;
     tv.tv_usec = timeoutU;
 
-    while (1) { 
+    while (1) {
         memset(buffer_udp, 0, size);
 
         int ready = select(sock_udp + 1, &readset, NULL, NULL, &tv);
@@ -718,6 +718,6 @@ int dw_file_request(int sock_client, char *buf, fils_t *fils) {
     }
 
     close(sock_udp);
- 
+
     return 0;
 }
