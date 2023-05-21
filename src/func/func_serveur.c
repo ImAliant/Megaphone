@@ -622,7 +622,6 @@ int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
 }
 
 static int find_file_fil(fils_t *fils, uint16_t numfil, char *data) {
-    printf("debug3\n");
     for (int i = 0; i < fils->list_fil[numfil].nb_billet; i++) {
         billet_t *billet = &fils->list_fil[numfil].billets[i];
         if (billet->type == FICHIER) {

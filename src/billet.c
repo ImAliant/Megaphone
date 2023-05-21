@@ -25,6 +25,7 @@ static billet_t create_billet_fichier(uint16_t id, size_t filesize, const char *
     new_billet.len = filesize;
     memcpy(new_billet.pseudo, username, USERNAME_LEN);
     memcpy(new_billet.billet.fichier.filename, filename, strlen(filename));
+    new_billet.billet.fichier.filename[strlen(filename)] = '\0';
     new_billet.billet.fichier.data = malloc(filesize + 1);
     memcpy(new_billet.billet.fichier.data, data, filesize);
     new_billet.billet.fichier.data[filesize] = '\0';
