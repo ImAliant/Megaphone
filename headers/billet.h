@@ -1,37 +1,55 @@
 #ifndef BILLET_H
 #define BILLET_H
 
+#define MAX_FILE_SIZE 35127296
 #define SIZE_MESS 200
-#define MAX_USERNAME_LEN 10
 #define NB_MAX_BILLETS_PAR_FIL 100
 #define NB_MAX_FILS 100
+#define SIZE_FILENAME 256
 
 #include <stdint.h>
 
-// Structure des billets
-struct billet {
+#include "users.h"
+
+typedef enum {
+    MESSAGE, 
+    FICHIER
+} type_billet_t;
+
+typedef struct {
+    type_billet_t type;
     uint16_t idClient;
-    char pseudo[MAX_USERNAME_LEN+1];
-    char contenu[SIZE_MESS+1];
-    uint8_t len;
-};
+    username_t pseudo;
+    size_t len;
+    union {
+        struct {
+            char contenu[SIZE_MESS + 1];
+        } message;
+        struct {
+            char filename[SIZE_FILENAME + 1];
+            char *data;
+        } fichier;
+    } billet;
+} billet_t;
 
-// Structure des fils
-struct fil {
-    struct billet billets[NB_MAX_BILLETS_PAR_FIL];
-    char pseudo[MAX_USERNAME_LEN+1];
+typedef struct {
+    billet_t billets[NB_MAX_BILLETS_PAR_FIL];
+    username_t pseudo;
     int nb_billet;
-};
+} fil_t;
 
-// Liste des fils
-struct fils {
-    struct fil list_fil[NB_MAX_FILS];
+typedef struct {
+    fil_t list_fil[NB_MAX_FILS];
     int nb_fil;
-};
+} fils_t;
 
-// Creation d'un nouveau fil
-int create_fil(struct fils *, uint16_t, uint8_t, char *, char *);
-// Ajout d'un billet dans un fil
-int add_billet(struct fils *, uint16_t, uint16_t, uint8_t, char *, char *);
+// Creation d'un nouveau fil ou le premier contenu est un message
+int create_fil_message(fils_t *, uint16_t, uint8_t, const char *, const username_t);
+// Creation d'un nouveau fil ou le premier contenu est un fichier
+int create_fil_fichier(fils_t *, uint16_t, size_t, const char *, const char *, const username_t);
+// Ajout d'un message dans un fil
+int add_message(fils_t *, uint16_t, uint16_t, uint8_t, const char *, const username_t);
+// Ajout d'un fichier dans un fil
+int add_file(fils_t *, uint16_t, uint16_t, size_t, const char *, const char *, const username_t);
 
-#endif 
+#endif
