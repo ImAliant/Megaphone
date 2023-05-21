@@ -93,8 +93,8 @@ static void *serve(void *arg) {
         get_billets_request(sock_client, buf, &fils);
         break;
     case REQ_SUBSCRIBE:
-        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
-        exit(1);
+        subscribe_request(sock_client, buf);
+        break;
     case REQ_ADD_FILE:
         add_file_request(sock_client, buf, &fils, sock_udp, port_udp, addr, username);
         break;

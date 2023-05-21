@@ -36,8 +36,8 @@ static void request(int sock) {
         get_billets_request(sock);
         break;
     case REQ_SUBSCRIBE:
-        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
-        exit(1);
+        subscribe_request(sock);
+        break;
     case REQ_ADD_FILE:
         add_file_request(sock);
         break;
