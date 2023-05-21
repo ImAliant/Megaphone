@@ -1,2 +1,17 @@
-# pr6_projet_megaphone
+# Megaphone
 
+## Compilation
+
+```sh
+make
+```
+
+## Utilisation
+
+```sh
+./serveur <port>
+```
+
+```sh
+./client <hostname> <port>
+```
