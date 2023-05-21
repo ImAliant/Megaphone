@@ -281,7 +281,7 @@ int get_billets_request(int sock, uint16_t id) {
     printf("NUMERO DU FIL ET NB DE BILLETS : ");
     int f, n;
     int r = scanf("%d %d", &f, &n);
-    if (r != 3) {
+    if (r != 2) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }
@@ -479,7 +479,7 @@ int add_file_request(int sock, uint16_t id) {
     printf("NUMERO DU FIL, NOM DU FICHIER : ");
 
     int r = scanf("%d %256s", &f, filename);
-    if (r != 3) {
+    if (r != 2) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }
@@ -611,7 +611,7 @@ int dw_file_request(int sock, uint16_t id) {
     printf("NUMERO DU FIL, NOM DU FICHIER : ");
 
     int r = scanf("%d %256s", &f, filename);
-    if (r != 3) {
+    if (r != 2) {
         fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
         exit(1);
     }

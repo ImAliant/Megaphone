@@ -84,12 +84,13 @@ static int connexion() {
 
         n = atoi(buf);
 
-        if (n < 0 || n >= (1 << 11)) {
+        if (n >= 0 && n < (1 << 11)) {
+            return n;
+        } else {
             fprintf(stderr, "Identifiant invalide\n");
         }
-    } while(1);
 
-    return n;
+    } while(1);
 }
 
 int main(int argc, const char *argv[]) {
