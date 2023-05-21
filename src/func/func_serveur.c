@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "billet.h"
@@ -249,7 +251,7 @@ static void send_billet(int sock, fils_t *fils, uint16_t numfil,
     if (type == MESSAGE)
         data = malloc(SIZE_MESS + 1);
     else if (type == FICHIER)
-        data = "FICHIER";
+        data = fils->list_fil[numfil].billets[pos_billet].billet.fichier.filename;
 
     memset(pseudo_fil, 0, USERNAME_LEN);
     memset(pseudo_billet, 0, USERNAME_LEN);
@@ -490,6 +492,8 @@ int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
 
     send_message(sock_client, buffer, sizebuf);
 
+    close(sock_client);
+
     // RECEPTION DES PAQUETS UDP
     size_t size_all = MAX_FILE_SIZE;
     char *all_paquets = malloc(size_all);
@@ -499,8 +503,29 @@ int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
 
     size_t size = sizeof(uint16_t)*2 + SIZE_PAQUET;
     char buffer_udp[size];
+
+    int timeout = 5;
+    int timeoutU = 0;
+    fd_set readset;
+    FD_ZERO(&readset);
+    FD_SET(sock_udp, &readset);
+
+    struct timeval tv;
+    tv.tv_sec = timeout;
+    tv.tv_usec = timeoutU;
+
     while (1) { 
         memset(buffer_udp, 0, size);
+
+        int ready = select(sock_udp + 1, &readset, NULL, NULL, &tv);
+
+        if (ready == -1) {
+            perror("select");
+            exit(1);
+        } else if (ready == 0) {
+            printf("TIMEOUT UDP\n");
+            break;
+        }
 
         recvfrom(sock_udp, buffer_udp, size, 0, (struct sockaddr *) &addr_udp, &addr_udp_len);
         ptr = buffer_udp;
@@ -531,5 +556,107 @@ int add_file_request(int sock_client, char *buf, fils_t *fils, int sock_udp,
 
     free(all_paquets);
 
+    return 0;
+}
+
+static int find_file_fil(fils_t *fils, uint16_t numfil, char *data) {
+    printf("debug3\n");
+    for (int i = 0; i < fils->list_fil[numfil].nb_billet; i++) {
+        billet_t *billet = &fils->list_fil[numfil].billets[i];
+        if (billet->type == FICHIER) {
+            if (strcmp(billet->billet.fichier.filename, data) == 0) {
+                return i;
+            }
+        }
+    }
+
+    return -1;
+}
+
+int dw_file_request(int sock_client, char *buf, fils_t *fils) {
+    uint16_t header, id, numfil, nb, numbloc;
+    uint8_t codereq, lendata;
+    char data[SIZE_FILENAME];
+
+    char *ptr = buf;
+    memcpy(&header, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&numfil, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&nb, ptr, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    memcpy(&lendata, ptr, sizeof(uint8_t));
+    ptr += sizeof(uint8_t);
+    memcpy(&data, ptr, lendata);
+
+    codereq = ntohs(header) & 0x1F;
+    id = ntohs(header) >> 5;
+    numfil = ntohs(numfil);
+    nb = ntohs(nb);
+
+    printf("CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd, LENDATA %hd, DATA %s\n", codereq, id, numfil, nb, lendata, data);
+
+    // TEST SI LE NUMERO DE FIL EST VALIDE
+    if (numfil > fils->nb_fil) {
+        error_request(sock_client, codereq, id, ERR_NUMFIL);
+        return 1;
+    }
+
+    // ON TESTE SI LE FICHIER EXISTE DANS LE FIL DONNE
+    int find = find_file_fil(fils, numfil-1, data);
+    if (find == -1) return 1;
+
+    // SI LE FICHIER EXISTE ON ENVOIE AU CLIENT L'AUTORISATION DE TELECHARGEMENT
+    size_t sizebuf = sizeof(uint16_t) * 3 + sizeof(uint8_t) + lendata;
+    send_message(sock_client, buf, sizebuf);
+
+    // LE CLIENT ET LE SERVEUR SE DECONNECTE EN TCP ET ON PASSE EN UDP
+    close(sock_client);
+
+    // ON RECUPERE LE PORT UDP DU CLIENT
+    int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (sock_udp == -1) {
+        perror("Impossible de créer la socket UDP");
+        exit(1);
+    }
+
+    struct sockaddr_in6 addr_udp;
+    socklen_t addr_udp_len = sizeof(addr_udp);
+    addr_udp.sin6_family = AF_INET6;
+    addr_udp.sin6_port = htons(nb);
+    addr_udp.sin6_addr = in6addr_any;
+
+    // CALCULE DU NOMBRE DE PAQUETS
+    size_t filesize = fils->list_fil[numfil-1].billets[find].len;
+    char *file = fils->list_fil[numfil-1].billets[find].billet.fichier.data;
+
+    int nb_paquets = 0;
+    nb_paquets = filesize / SIZE_PAQUET + 1;
+
+    // ENVOI DES PAQUETS
+    size_t size = sizeof(header)+sizeof(numbloc)+SIZE_PAQUET;
+    char buffer[size];
+    memset(buffer, 0, size);
+
+    char paquet[SIZE_PAQUET];
+    memset(paquet, 0, SIZE_PAQUET);
+
+    for (int i = 0; i < nb_paquets; i++) {
+        memset(paquet, 0, SIZE_PAQUET);
+        memcpy(paquet, file + i * SIZE_PAQUET, SIZE_PAQUET);
+
+        ptr = buffer;
+        memcpy(ptr, &header, sizeof(header));
+        ptr += sizeof(header);
+        numbloc = htons(i);
+        memcpy(ptr, &numbloc, sizeof(numbloc));
+        ptr += sizeof(numbloc);
+        memcpy(ptr, paquet, SIZE_PAQUET);
+
+        sendto(sock_udp, buffer, size, 0, (struct sockaddr *) &addr_udp, addr_udp_len);
+    }
+
+    close(sock_udp);
+ 
     return 0;
 }

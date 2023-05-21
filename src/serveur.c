@@ -17,7 +17,7 @@
 
 #define SIZE_MESS 200
 #define MAX_USERS 100
-
+#define ADD_PORT_UDP 1263
 
 int nb_utilisateurs = 0;
 utilisateur liste[MAX_USERS];
@@ -93,12 +93,14 @@ static void *serve(void *arg) {
         get_billets_request(sock_client, buf, &fils);
         break;
     case REQ_SUBSCRIBE:
+        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
+        exit(1);
     case REQ_ADD_FILE:
         add_file_request(sock_client, buf, &fils, sock_udp, port_udp, addr, username);
         break;
     case REQ_DW_FILE:
-        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
-        exit(1);
+        dw_file_request(sock_client, buf, &fils);
+        break;
     default:
         error_request(sock_client, codereq, id, ERR_CODEREQ_UNKNOWN);
         break;
@@ -190,7 +192,7 @@ int main(int argc, const char *argv[]) {
     }
     struct sockaddr_in6 addr = {0};
     addr.sin6_family = AF_INET6;
-    addr.sin6_port = htons(6565);
+    addr.sin6_port = htons(port+ADD_PORT_UDP);
 
     int yes = 1;
     int r = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
@@ -204,7 +206,7 @@ int main(int argc, const char *argv[]) {
     server->sock_udp = sock_udp;
     server->addr_udp = addr;
     server->port_tcp = port;
-    server->port_udp = 6565;
+    server->port_udp = port+ADD_PORT_UDP;
 
     loop(server);
 

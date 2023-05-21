@@ -28,6 +28,7 @@ int get_billets_request(int, const char *, fils_t *);
 void error_request(int, codereq_t, uint16_t, error_t);
 // Requete ajout d'un fichier
 int add_file_request(int, char *, fils_t *, int, int, struct sockaddr_in6, username_t);
-
+// Requete telechargement d'un fichier
+int dw_file_request(int, char *, fils_t *);
 
 #endif

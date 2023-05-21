@@ -20,6 +20,8 @@ typedef enum {
     ERR_NUMFIL,
     // Type pour affichage billets
     ERR_NON_TYPE,
+    // Le fichier n'existe pas
+    ERR_FILE
 } error_t;
 
 #endif

@@ -25,9 +25,9 @@ int inscription_request(int);
 int post_billet_request(int);
 // Requete obtention des billets
 int get_billets_request(int);
-// Requete abonnement a un fil
-int subscribe_request(int);
 // Requete ajout d'un fichier
-int add_file_request();
+int add_file_request(int);
+// Requete telechargement d'un fichier
+int dw_file_request(int);
 
 #endif

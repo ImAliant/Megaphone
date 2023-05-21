@@ -36,12 +36,14 @@ static void request(int sock) {
         get_billets_request(sock);
         break;
     case REQ_SUBSCRIBE:
+        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
+        exit(1);
     case REQ_ADD_FILE:
         add_file_request(sock);
         break;
     case REQ_DW_FILE:
-        fprintf(stderr, "%s:%d: TODO\n", __FILE__, __LINE__);
-        exit(1);
+        dw_file_request(sock);
+        break;
     default:
         fprintf(stderr, "ERREUR : Requete inconnue");
         exit(1);

@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "billet.h"
@@ -18,6 +20,7 @@
 #define BUFLEN 4096
 #define SIZE_FILENAME 256
 #define SIZE_PAQUET 512
+#define PORT_UDP_DW 9122
 
 int error_request(const char *buf) {
     uint16_t header;
@@ -483,10 +486,13 @@ int add_file_request(int sock) {
 
     nb = ntohs(nb);
 
+    // DECONNEXION SERVER TCP
+    close(sock);
+
     // SOCKET CLIENT UDP
     int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
     if (sock_udp < 0) {
-        perror("Erreur : Impossible de créer le socket UDP");
+        perror("Impossible de créer le socket UDP");
         exit(1);
     }
 
@@ -498,9 +504,9 @@ int add_file_request(int sock) {
     addr.sin6_addr = in6addr_any;
 
     // CALCULE DU NOMBRE DE PAQUETS
-    int nb_packets = 0;
+    int nb_paquets = 0;
 
-    nb_packets = filesize / SIZE_PAQUET + 1;
+    nb_paquets = filesize / SIZE_PAQUET + 1;
 
     // ENVOI DES PAQUETS
     size_t sizebuffer = sizeof(uint16_t)+sizeof(uint16_t)+SIZE_PAQUET;
@@ -510,7 +516,7 @@ int add_file_request(int sock) {
     char paquet[SIZE_PAQUET];
     memset(paquet, 0, SIZE_PAQUET);
 
-    for (int i = 0; i < nb_packets; i++) {
+    for (int i = 0; i < nb_paquets; i++) {
         memset(paquet, 0, SIZE_PAQUET);
         fread(paquet, 1, SIZE_PAQUET, file);
 
@@ -530,6 +536,169 @@ int add_file_request(int sock) {
 
     // FERMETURE DU FICHIER
     fclose(file);
+
+    return 0;
+}
+
+int dw_file_request(int sock) {
+    uint16_t header, id, numfil, nb, numbloc;
+    uint8_t codereq, lendata;
+    int iduser, f;
+    char filename[SIZE_FILENAME];
+    char data[SIZE_FILENAME];
+
+    fflush(stdout);
+    printf("IDENTIFIANT, NUMERO DU FIL, NOM DU FICHIER : ");
+
+    int r = scanf("%d %d %256s", &iduser, &f, filename);
+    if (r != 3) {
+        fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
+        exit(1);
+    }
+    if (iduser > MAX_VALUE_11BITS_INTEGER) {
+        fprintf(stderr, "Erreur : Cette identifiant ne peux pas exister.\n");
+        exit(1);
+    }
+    if (f < 1) {
+        fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à 1.\n");
+        exit(1);
+    }
+
+    // UDP
+    int sock_udp = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (sock_udp < 0) {
+        perror("Erreur : Impossible de créer le socket UDP");
+        exit(1);
+    }
+
+    // ADRESSE DESTINATION
+    struct sockaddr_in6 addr;
+    memset(&addr, 0, sizeof(addr));
+    socklen_t addr_len = sizeof(addr);
+    addr.sin6_family = AF_INET6;
+    addr.sin6_port = htons(PORT_UDP_DW);
+    addr.sin6_addr = in6addr_any;
+
+    // BIND
+    if (bind(sock_udp, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        perror("Impossible de bind le socket UDP");
+        exit(1);
+    }
+
+    // ENTETE
+    codereq = REQ_DW_FILE;
+    id = iduser;
+    numfil = f;
+    header = htons((id << 5) | (codereq & 0x1F));
+    numfil = htons(numfil);
+    nb = addr.sin6_port;
+    lendata = strlen(filename);
+    memcpy(data, filename, lendata);
+
+    size_t sizebuf = sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata) + lendata;
+    char buf[sizebuf];
+    memset(buf, 0, sizebuf);
+
+    // CONSTRUCTION DU BUFFER
+    char *ptr = buf;
+    memcpy(ptr, &header, sizeof(header));
+    ptr += sizeof(header);
+    memcpy(ptr, &numfil, sizeof(numfil));
+    ptr += sizeof(numfil);
+    memcpy(ptr, &nb, sizeof(nb));
+    ptr += sizeof(nb);
+    memcpy(ptr, &lendata, sizeof(lendata));
+    ptr += sizeof(lendata);
+    memcpy(ptr, data, lendata);
+
+    // ENVOI DE LA REQUETE
+    send_message(sock, buf, sizebuf);
+
+    //RECEPTION ACCEPTATION OU REFUS DU TRANSFERT
+    int timeout = 5;
+    int timeoutU = 0;
+    fd_set readset;
+    FD_ZERO(&readset);
+    FD_SET(sock, &readset);
+
+    struct timeval tv;
+    tv.tv_sec = timeout;
+    tv.tv_usec = timeoutU;
+
+    int ready = select(sock + 1, &readset, NULL, NULL, &tv);
+    if (ready == -1) {
+        perror("select");
+        exit(1);
+    } else if (ready == 0) {
+        printf("REFUS DE TRANSFERT\n");
+        return 0;
+    }
+
+    recv_message(sock, buf, sizebuf);
+
+    // LE CLIENT SE DECONNECTE DU SERVEUR
+    close(sock);
+
+    // RECEPTION DES PAQUETS UDP
+    size_t size_all = MAX_FILE_SIZE;
+    char *all_paquets = malloc(size_all);
+
+    char paquet[SIZE_PAQUET];
+    memset(paquet, 0, SIZE_PAQUET);
+
+    size_t size = sizeof(uint16_t)*2 + SIZE_PAQUET;
+    char buffer_udp[size];
+
+    FD_ZERO(&readset);
+    FD_SET(sock_udp, &readset);
+
+    while (1) { 
+        memset(buffer_udp, 0, size);
+
+        ready = select(sock_udp + 1, &readset, NULL, NULL, &tv);
+
+        if (ready == -1) {
+            perror("select");
+            exit(1);
+        } else if (ready == 0) {
+            printf("TIMEOUT UDP\n");
+            break;
+        }
+
+        recvfrom(sock_udp, buffer_udp, size, 0, (struct sockaddr *) &addr, &addr_len);
+        ptr = buffer_udp;
+        memcpy(&header, ptr, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+        memcpy(&numbloc, ptr, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+        memcpy(&paquet, ptr, SIZE_PAQUET);
+
+        strcat(all_paquets, paquet);
+
+        if (strlen(paquet) < SIZE_PAQUET) {
+            break;
+        }
+    }
+
+    // ON AFFICHE LE CONTENU DU FICHIER
+    size_t filesize = strlen(all_paquets);
+    printf("FICHIER RECU : NOM %s TAILLE %d\n", data, (int) filesize);
+
+    // ON CREE LE FICHIER
+    FILE *file = fopen(data, "w");
+    if (file == NULL) {
+        perror("Impossible de créer le fichier");
+        exit(1);
+    }
+
+    // ON ECRIT DANS LE FICHIER
+    fwrite(all_paquets, sizeof(char), filesize, file);
+
+    // ON FERME LE FICHIER
+    fclose(file);
+
+    // ON FERME LE SOCKET UDP
+    close(sock_udp);
 
     return 0;
 }
