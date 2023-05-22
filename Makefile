@@ -10,7 +10,7 @@ ALL = client serveur
 .PHONY: all
 all: $(ALL)
 
-client: $(BUILD)/users.o $(BUILD)/message.o $(BUILD)/func/func_client.o $(SRC)/client.c
+client: $(BUILD)/interface_client.o $(BUILD)/users.o $(BUILD)/message.o $(BUILD)/func/func_client.o $(SRC)/client.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 serveur: $(BUILD)/users.o $(BUILD)/message.o $(BUILD)/billet.o $(BUILD)/func/func_serveur.o $(SRC)/serveur.c

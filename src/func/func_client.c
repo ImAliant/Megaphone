@@ -13,6 +13,7 @@
 #include "billet.h"
 #include "error.h"
 #include "func/func_client.h"
+#include "interface_client.h"
 #include "message.h"
 #include "request.h"
 
@@ -36,65 +37,41 @@ int error_request(const char *buf) {
 
     memcpy(&type, buf + sizeof(uint16_t), sizeof(type));
 
+    char errmsg[BUFLEN];
+
     switch (type) {
     case ERR_CODEREQ_UNKNOWN:
-        printf("ERREUR : REQUETE INCONNUE \n");
+        strcpy(errmsg, "Requete inconnue");
         break;
     case ERR_NON_ZERO_ID_WITH_CODE_REQ_ONE:
-        printf("ERREUR : ID NON NUL AVEC CODEREQ=1 \n");
+        strcpy(errmsg, "id non nul avec codereq=1");
         break;
     case ERR_ID_DOES_NOT_EXIST:
-        printf("ERREUR : ID INEXISTANT DANS LA TABLE \n");
+        strcpy(errmsg, "id inexistant dans la table");
         break;
     case ERR_PSEUDO_ALREADY_USED:
-        printf("ERREUR : PSEUDO DEJA UTILISE \n");
+        strcpy(errmsg, "pseudo deja utilise");
         break;
     case ERR_MAX_FILS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU FIL \n");
+        strcpy(errmsg, "impossible de creer un nouveau fil");
         break;
     case ERR_MAX_USERS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU UTILISATEUR \n");
+        strcpy(errmsg, "impossible de creer un nouveau utilisateur");
         break;
     case ERR_MAX_BILLETS_REACHED:
-        printf("ERREUR : IMPOSSIBLE DE CREER UN NOUVEAU BILLET \n");
+        strcpy(errmsg, "impossible de creer un nouveau billet");
         break;
     case ERR_NUMFIL:
-        printf("ERREUR : NUMERO DE FIL INEXISTANT \n");
+        strcpy(errmsg, "numero de fil inexistant");
         break;
     default:
-        fprintf(stderr, "ERREUR : ERREUR INCONNUE \n");
-        exit(1);
+        strcpy(errmsg, "erreur serveur");
+        break;
     }
+
+    fprintf(stderr, "Erreur: %s\n\n", errmsg);
 
     return 1;
-}
-
-void demande_pseudo(username_t username) {
-    bool ok = false;
-    char buf[BUFLEN];
-    while(!ok) {
-        printf("Saisir votre pseudo: ");
-        const char *r = fgets(buf, BUFLEN, stdin);
-        if (r == NULL) {
-            fprintf(stderr, "Erreur: EOF\n");
-            exit(1);
-        }
-
-        username_error ru = string_to_username(buf, username);
-        switch (ru) {
-        case USERNAME_OK:
-            ok = true;
-            break;
-        case USERNAME_TOO_LONG:
-            printf("Le pseudo ne peut pas depasser 10 caractères\n");
-            break;
-        case USERNAME_EMPTY:
-            break;
-        }
-
-    }
-
-    printf("PSEUDO : %s\n", username_to_string(username, buf));
 }
 
 uint16_t create_header(uint8_t codereq_client) {
@@ -121,7 +98,7 @@ static int get_server_addr(const char *hostname, const char *port, int *sock, st
 
     ret = getaddrinfo(hostname, port, &hints, &r);
     if (ret != 0 || r == NULL) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+        fprintf(stderr, "getaddrinfo: %s\n\n", gai_strerror(ret));
         return -1;
     }
 
@@ -159,10 +136,10 @@ int connexion_server(const char *hostname, const char *port) {
     case 0:
         break;
     case -1:
-        fprintf(stderr, "Erreur: hote non trouve.\n");
+        fprintf(stderr, "Erreur: hote non trouve.\n\n");
         exit(1);
     case -2:
-        fprintf(stderr, "Erreur: echec de creation de la socket.\n");
+        fprintf(stderr, "Erreur: echec de creation de la socket.\n\n");
         exit(1);
     }
 
@@ -199,32 +176,25 @@ int inscription_request(int sock, username_t username) {
 }
 
 int post_billet_request(int sock, uint16_t id) {
-    uint16_t header, numfil, nb;
+    uint16_t header, nb;
     uint8_t codereq_client, lendata;
     char data[SIZE_MESS];
     memset(data, 0, SIZE_MESS);
 
-    fflush(stdout);
-    printf("NUM FIL (0 pour en créer un nouveau) : ");
-    int r = scanf("%hu", &numfil);
-    if (r == EOF) {
-        perror("Erreur: ");
-    } else if (r != 1) {
-        fprintf(stderr, "Erreur : EOF");
+    char input_buf[BUFLEN];
+    ask("Numéro de fil (n pour en créer un nouveau) ", input_buf, BUFLEN);
+
+    uint16_t numfil;
+    if (getCharacter(input_buf) == 'n') {
+        numfil = 0;
+    } else {
+        numfil = atoi(input_buf);
     }
 
     codereq_client = REQ_POST_BILLET;
     nb = 0;
 
-    fflush(stdout);
-    printf("ENTREZ VOTRE MESSAGE :\n");
-    getchar();
-    const char *r2 = fgets(data, SIZE_MESS, stdin);
-    if (r2 == NULL) {
-        fprintf(stderr, "Erreur : EOF\n");
-        exit(1);
-    }
-
+    ask("Entrez votre message ", data, SIZE_MESS);
     lendata = strlen(data) - 1;
 
     char buf[SIZE_MESS * 2];
@@ -263,8 +233,7 @@ int post_billet_request(int sock, uint16_t id) {
     numfil = ntohs(numfil);
 
     // AFFICHAGE DE LA REPONSE
-    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd\n", codereq_client, id,
-           numfil);
+    printf("Message posté sur le fil %hu\n\n", numfil);
 
     return 0;
 }
@@ -277,22 +246,12 @@ int get_billets_request(int sock, uint16_t id) {
     char buf[sizebuf];
     memset(buf, 0, sizebuf);
 
-    fflush(stdout);
-    printf("NUMERO DU FIL ET NB DE BILLETS : ");
-    int f, n;
-    int r = scanf("%d %d", &f, &n);
-    if (r != 2) {
-        fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
-        exit(1);
-    }
+    char input_buf[BUFLEN];
+    ask("Numéro du fil ", input_buf, BUFLEN);
+    numfil = atoi(input_buf);
 
-    if (f < 0 || n < 0) {
-        fprintf(stderr, "Erreur : Les valeurs doivent être supérieures ou égales à zéro.\n");
-        exit(1);
-    }
-
-    numfil = f;
-    nb = n;
+    ask("Nombre de billets ", input_buf, BUFLEN);
+    nb = atoi(input_buf);
 
     // CONTRUCTION ENTETE
     codereq = REQ_GET_BILLET;
@@ -333,8 +292,7 @@ int get_billets_request(int sock, uint16_t id) {
     nb = ntohs(nb);
 
     // AFFICHAGE DE LA REPONSE
-    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd, NB %hd\n",
-           codereq, id, numfil, nb);
+    printf("%hu billets trouvés sur le fil %hu\n", nb, numfil);
 
     // RECEPTION DES BILLETS
     size_t sizebillet = sizeof(uint16_t) // numfil
@@ -374,8 +332,10 @@ int get_billets_request(int sock, uint16_t id) {
         // AFFICHAGE DU BILLET
         char buf_pseudo_fil[USERNAME_LEN + 1]; username_to_string(pseudo_fil, buf_pseudo_fil);
         char buf_pseudo_billet[USERNAME_LEN + 1]; username_to_string(pseudo_billet, buf_pseudo_billet);
-        printf("BILLET %d : NUMFIL %hd, ORIGINE %s, PSEUDO %s, DATA %s\n",
-                i + 1, numfil, buf_pseudo_fil, buf_pseudo_billet, data);
+
+        printf("Billet %d, Fil %hd:\n", i + 1, numfil);
+        printf("%s, en réponse à %s\n", buf_pseudo_billet, buf_pseudo_fil);
+        printf("%s\n\n", data);
     }
 
     return 0;
@@ -383,22 +343,17 @@ int get_billets_request(int sock, uint16_t id) {
 
 int subscribe_request(int sock, uint16_t id){
 
-    uint16_t header, numfil, nb,addr_Multicast;
+    uint16_t header, nb,addr_Multicast;
     uint8_t codereq_client, lendata;
     char data[SIZE_MESS];
 
-    fflush(stdout);
-    printf("Entrez le numero de fil : ");
-    int r = scanf("%hu", &numfil);
-    if (r != 1) {
-        fprintf(stderr, "Erreur: EOF\n");
-        return -1;
-    }
+    char input_buf[BUFLEN];
+    ask("Numéro de fil ", input_buf, BUFLEN);
+    uint16_t numfil = atoi(input_buf);
 
     codereq_client = REQ_SUBSCRIBE;
     nb = 0;
 
-    fflush(stdout);
     lendata = 0;
 
     char buf[SIZE_MESS*4];
@@ -430,8 +385,9 @@ int subscribe_request(int sock, uint16_t id){
     codereq_client = ntohs(header) & 0x1F;
     numfil = ntohs(numfil);
     addr_Multicast = ntohs(addr_Multicast);
+
     // AFFICHAGE DE LA REPONSE
-    printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd,ADDRMLD %hd\n", codereq_client, id, numfil,addr_Multicast);
+    printf("Abonnement au fil %hd\n", numfil);
 
     char addr_Multicast_str[INET6_ADDRSTRLEN];
     snprintf(addr_Multicast_str, INET6_ADDRSTRLEN, "%u", addr_Multicast);
@@ -469,30 +425,21 @@ int subscribe_request(int sock, uint16_t id){
 }
 
 int add_file_request(int sock, uint16_t id) {
-    uint16_t header, numfil, nb, numbloc;
+    uint16_t header, nb, numbloc;
     uint8_t codereq, lendata;
-    int f;
     char data[256];
     char filename[257];
 
-    fflush(stdout);
-    printf("NUMERO DU FIL, NOM DU FICHIER : ");
+    char input_buf[BUFLEN];
+    ask("Numéro du fil ", input_buf, BUFLEN);
+    uint16_t numfil = atoi(input_buf);
 
-    int r = scanf("%d %256s", &f, filename);
-    if (r != 2) {
-        fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
-        exit(1);
-    }
-
-    if (f < 0) {
-        fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à zéro.\n");
-        exit(1);
-    }
+    ask("Nom du fichier ", filename, 257);
 
     // OUVERTURE DU FICHIER
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        fprintf(stderr, "Erreur : Le fichier n'existe pas.\n");
+        fprintf(stderr, "Erreur : Le fichier n'existe pas.\n\n");
         exit(1);
     }
     // TAILLE DU FICHIER
@@ -501,7 +448,7 @@ int add_file_request(int sock, uint16_t id) {
     fseek(file, 0, SEEK_SET);
 
     if (filesize > MAX_FILE_SIZE) {
-        fprintf(stderr, "Erreur : Le fichier est trop volumineux.\n");
+        fprintf(stderr, "Erreur : Le fichier est trop volumineux.\n\n");
         exit(1);
     }
 
@@ -509,7 +456,6 @@ int add_file_request(int sock, uint16_t id) {
 
     // ENTETE
     codereq = REQ_ADD_FILE;
-    numfil = f;
 
     header = htons((id << 5) | (codereq & 0x1F));
     numfil = htons(numfil);
@@ -576,7 +522,7 @@ int add_file_request(int sock, uint16_t id) {
         memset(paquet, 0, SIZE_PAQUET);
         int r = fread(paquet, 1, SIZE_PAQUET, file);
         if (r < 1) {
-            fprintf(stderr, "Erreur: EOF\n");
+            fprintf(stderr, "Erreur: EOF\n\n");
             return -1;
         }
 
@@ -601,24 +547,19 @@ int add_file_request(int sock, uint16_t id) {
 }
 
 int dw_file_request(int sock, uint16_t id) {
-    uint16_t header, numfil, nb, numbloc;
+    uint16_t header, nb, numbloc;
     uint8_t codereq, lendata;
-    int f;
     char filename[SIZE_FILENAME + 1];
     char data[SIZE_FILENAME];
 
-    fflush(stdout);
-    printf("NUMERO DU FIL, NOM DU FICHIER : ");
+    char input_buf[BUFLEN];
+    ask("Numéro du fil ", input_buf, BUFLEN);
+    uint16_t numfil = atoi(input_buf);
+    ask("Nom du fichier ", filename, SIZE_FILENAME);
 
-    int r = scanf("%d %256s", &f, filename);
-    if (r != 2) {
-        fprintf(stderr, "Erreur : Veuillez entrer 3 valeurs.\n");
-        exit(1);
-    }
-
-    if (f < 1) {
-        fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à 1.\n");
-        exit(1);
+    if (numfil == 0) {
+        fprintf(stderr, "Erreur : Le numéro du fil doit être supérieur ou égal à 1.\n\n");
+        return -1;
     }
 
     // UDP
@@ -644,7 +585,6 @@ int dw_file_request(int sock, uint16_t id) {
 
     // ENTETE
     codereq = REQ_DW_FILE;
-    numfil = f;
     header = htons((id << 5) | (codereq & 0x1F));
     numfil = htons(numfil);
     nb = addr.sin6_port;
@@ -686,7 +626,7 @@ int dw_file_request(int sock, uint16_t id) {
         perror("select");
         exit(1);
     } else if (ready == 0) {
-        printf("REFUS DE TRANSFERT\n");
+        printf("REFUS DE TRANSFERT\n\n");
         return 0;
     }
 
@@ -714,7 +654,7 @@ int dw_file_request(int sock, uint16_t id) {
             perror("select");
             exit(1);
         } else if (ready == 0) {
-            printf("TIMEOUT UDP\n");
+            printf("TIMEOUT UDP\n\n");
             exit(1);
         }
 
@@ -735,13 +675,14 @@ int dw_file_request(int sock, uint16_t id) {
 
     // ON AFFICHE LE CONTENU DU FICHIER
     size_t filesize = strlen(all_paquets);
-    printf("FICHIER RECU : NOM %s TAILLE %d\n", data, (int) filesize);
+    printf("Fichier recu : %.*s (%luo)\n\n", lendata, data, filesize);
 
     // ON CREE LE FICHIER
     FILE *file = fopen(data, "w");
     if (file == NULL) {
         perror("Impossible de créer le fichier");
-        exit(1);
+        printf("\n");
+        return -1;
     }
 
     // ON ECRIT DANS LE FICHIER

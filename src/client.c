@@ -9,19 +9,9 @@
 
 #include "func/func_client.h"
 #include "request.h"
+#include "interface_client.h"
 
 #define BUF_SIZE 200
-
-static int ask(const char *question, char *answer_buf, size_t size) {
-    printf("%s> ", question);
-
-    char *r = fgets(answer_buf, size, stdin);
-    if (r == NULL) exit(0); // EOF
-
-    printf("\n");
-
-    return 0;
-}
 
 static void loop(int sock, uint16_t id) {
     bool quit = false;
@@ -32,22 +22,29 @@ static void loop(int sock, uint16_t id) {
             "a[B]onnements fil\n"
             "[A]jouter un fichier\n"
             "[T]elecharger un fichier\n"
-            "[Q]uitter\n",
+            "[Q]uitter\n"
+            "[pdbatq] ",
             buf, BUF_SIZE);
 
-        char c = buf[0];
-        if (c == 'p' || c == 'P') {
+        switch (getCharacter(buf)) {
+        case 'p':
             post_billet_request(sock, id);
-        } else if (c == 'd' || c == 'D') {
+            break;
+        case 'd':
             get_billets_request(sock, id);
-        } else if (c == 'b' || c == 'B') {
+            break;
+        case 'b':
             subscribe_request(sock, id);
-        } else if (c == 'a' || c == 'A') {
+            break;
+        case 'a':
             add_file_request(sock, id);
-        } else if (c == 't' || c == 'T') {
+            break;
+        case 't':
             dw_file_request(sock, id);
-        } else if (c == 'q' || c == 'Q') {
+            break;
+        case 'q':
             quit = true;
+            break;
         }
     }
 }
@@ -57,20 +54,27 @@ static int inscription(int sock) {
 
     username_t username;
     username_error r;
-    do {
+    bool done = false;
+    while (!done) {
         ask("Nom d'utilisateur ", buf, BUF_SIZE);
         r = string_to_username(buf, username);
 
-        if (r == USERNAME_EMPTY) {
+        switch(r) {
+        case USERNAME_EMPTY:
             fprintf(stderr, "Nom d'utilisateur vide.\n");
-        } else if (r == USERNAME_TOO_LONG) {
+            break;
+        case USERNAME_TOO_LONG:
             fprintf(stderr, "Nom d'utilisateur limité a 10 charactères.\n");
+            break;
+        case USERNAME_OK:
+            done = true;
+            break;
         }
-    } while (r != USERNAME_OK);
+    }
 
     u_int16_t id = inscription_request(sock, username);
 
-    printf("Identifiant: %d\n", id);
+    printf("Identifiant: %d\n\n", id);
 
     return id;
 }
@@ -79,18 +83,20 @@ static int connexion() {
     char buf[BUF_SIZE];
 
     int n;
-    do {
+    bool done = false;
+    while(!done) {
         ask("Identifiant ", buf, BUF_SIZE);
 
         n = atoi(buf);
 
         if (n >= 0 && n < (1 << 11)) {
-            return n;
+            done = true;
         } else {
             fprintf(stderr, "Identifiant invalide\n");
         }
+    }
 
-    } while(1);
+    return n;
 }
 
 int main(int argc, const char *argv[]) {
@@ -104,19 +110,26 @@ int main(int argc, const char *argv[]) {
     int sock = connexion_server(hostname, port);
 
     uint16_t id = 0;
-    do {
+    bool done = false;
+
+    while(!done) {
         char buf[BUF_SIZE] = {0};
         ask("[I]nscription\n"
-            "[C]onnexion\n",
+            "[C]onnexion\n"
+            "[ic] ",
             buf, BUF_SIZE);
 
-        char c = buf[0];
-        if (c == 'i' || c == 'I') {
+        switch (getCharacter(buf)) {
+        case 'i':
             id = inscription(sock);
-        } else if (c == 'c' || c == 'C') {
+            done = true;
+            break;
+        case 'c':
             id = connexion();
+            done = true;
+            break;
         }
-    } while(id == 0);
+    }
 
     loop(sock, id);
     close(sock);
