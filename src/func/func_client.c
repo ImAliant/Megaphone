@@ -195,7 +195,7 @@ int post_billet_request(int sock, uint16_t id) {
     nb = 0;
 
     ask("Entrez votre message ", data, SIZE_MESS);
-    lendata = strlen(data) - 1;
+    lendata = strlen(data);
 
     char buf[SIZE_MESS * 2];
     header = htons((id << 5) | (codereq_client & 0x1F));

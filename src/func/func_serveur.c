@@ -134,6 +134,8 @@ int post_billet_request(int sock_client, char *buf, fils_t *fils, username_t use
             error_request(sock_client, codereq, id, ERR_MAX_FILS_REACHED);
             return 1;
         }
+
+        numfil = newfil;
     } else {
         // SINON, AJOUTER LE BILLET AU FIL
 
