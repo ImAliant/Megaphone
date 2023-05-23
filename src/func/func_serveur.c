@@ -474,7 +474,7 @@ int subscribe_request(int sock_client, char *buf) {
     }
     char addr_fil_str[INET6_ADDRSTRLEN];
     strcpy(addr_fil_str, "ff02::");
-    snprintf(addr_fil_str,"%u",numfil);
+    snprintf(addr_fil_str, INET6_ADDRSTRLEN, "%u",numfil);
     //initialiser l'addresse multicast 
     struct sockaddr_in6 grp;
     memset(&grp, 0, sizeof(grp));

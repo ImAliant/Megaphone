@@ -407,7 +407,7 @@ int get_billets_request(int sock) {
 }
 
 int subscribe_request(int sock){
-     
+    int iduser, f;
     uint16_t header, id, numfil, nb,addr_Multicast;
     uint8_t codereq_client, lendata;
     char data[SIZE_MESS];
@@ -415,17 +415,20 @@ int subscribe_request(int sock){
 
     fflush(stdout);
     printf("Entrez l'ID et le numero de fil : ");
-    scanf("%hd %hd",&id,&numfil);
+    scanf("%d %d",&iduser,&f);
 
-    if (id > MAX_VALUE_11BITS_INTEGER) {
+    if (iduser > MAX_VALUE_11BITS_INTEGER) {
         perror("Erreur : Cette identifiant ne peux pas exister.");
         exit(1);
     }
 
-    if (numfil < 0) {
+    if (f < 0) {
         perror("Erreur : Ce numéro de fil ne peux pas exister.");
         exit(1);
     }
+
+    id = iduser;
+    numfil = f;
 
     codereq_client = REQ_SUBSCRIBE;
     nb = 0;
@@ -467,7 +470,7 @@ int subscribe_request(int sock){
     printf("REPONSE : CODEREQ %hd, ID %hd, NUMFIL %hd,ADDRMLD %hd\n", codereq_client, id, numfil,addr_Multicast);
 
     char addr_Multicast_str[INET6_ADDRSTRLEN];
-    snprintf(addr_Multicast_str,"%u", addr_Multicast);
+    snprintf(addr_Multicast_str, INET6_ADDRSTRLEN, "%u", addr_Multicast);
     // abonnement au groupe multicast
     struct sockaddr_in6 grsock;
     memset(&grsock, 0, sizeof(grsock));
@@ -506,8 +509,8 @@ int add_file_request(int sock) {
     uint16_t header, id, numfil, nb, numbloc;
     uint8_t codereq, lendata;
     int iduser, f;
-    char data[256];
-    char filename[256];
+    char data[SIZE_FILENAME];
+    char filename[SIZE_FILENAME];
 
     fflush(stdout);
     printf("IDENTIFIANT, NUMERO DU FIL, NOM DU FICHIER : ");
@@ -554,6 +557,7 @@ int add_file_request(int sock) {
     nb = htons(0);
     lendata = filename_len;
     memcpy(data, filename, filename_len);
+    data[filename_len] = '\0';
 
     size_t sizebuf = sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata) + lendata;
     char buf[sizebuf];
@@ -615,7 +619,11 @@ int add_file_request(int sock) {
 
     for (int i = 0; i < nb_paquets; i++) {
         memset(paquet, 0, SIZE_PAQUET);
-        fread(paquet, 1, SIZE_PAQUET, file);
+        int r = fread(paquet, 1, SIZE_PAQUET, file);
+        if (r < 1) {
+            fprintf(stderr, "Erreur: EOF\n");
+            return -1;
+        }
 
         ptr = buffer_udp;
         memcpy(ptr, &header, sizeof(header));
@@ -691,6 +699,7 @@ int dw_file_request(int sock) {
     nb = addr.sin6_port;
     lendata = strlen(filename);
     memcpy(data, filename, lendata);
+    data[lendata] = '\0';
 
     size_t sizebuf = sizeof(header) + sizeof(numfil) + sizeof(nb) + sizeof(lendata) + lendata;
     char buf[sizebuf];
